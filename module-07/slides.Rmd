@@ -20,16 +20,18 @@ output:
 .col-wide   { flex: 2; }
 
 .metrics-ref {
-  display: inline-block;
+  position: absolute;
+  bottom: 12px;
+  right: 50px;
   background: #fff8dc;
   border: 1px solid #d4b400;
-  border-radius: 6px;
-  padding: 3px 9px;
-  font-size: 13px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
   text-decoration: none;
   color: #6b5a00;
   font-weight: bold;
-  margin-bottom: 0.4em;
+  z-index: 100;
 }
 .metrics-ref:hover {
   background: #ffeeaa;
@@ -82,7 +84,7 @@ theme_set(theme_minimal(base_size = 14))
 
 # From Module 3: We Saw the Gaps
 
-<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">CM</a>
 
 Module 3's audit showed that the same model could have:
 
@@ -156,7 +158,7 @@ $$P(\hat Y = 1 \mid A = 0) = P(\hat Y = 1 \mid A = 1)$$
 
 # 2. Equalized Odds
 
-<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">CM</a>
 
 $$P(\hat Y = 1 \mid Y = 1, A = 0) = P(\hat Y = 1 \mid Y = 1, A = 1) \quad \text{(equal TPR)}$$
 $$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{(equal FPR)}$$
@@ -180,7 +182,7 @@ $$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{
 
 # 3. Predictive Parity
 
-<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">CM</a>
 
 $$P(Y = 1 \mid \hat Y = 1, A = 0) = P(Y = 1 \mid \hat Y = 1, A = 1)$$
 
@@ -228,7 +230,7 @@ If you enforce two, the third **must** break.
 
 # The COMPAS Argument, Revisited
 
-<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">CM</a>
 
 Module 3 showed how COMPAS triggered a famous fairness debate:
 
@@ -248,7 +250,7 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 
 # Empirical Demonstration: Same Data, Sweep the Threshold
 
-<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">CM</a>
 
 ```{r impossibility-data, include=FALSE}
 set.seed(2024); n <- 5000
@@ -351,7 +353,7 @@ Three injection points:
 
 # Post-Processing: Group-Specific Thresholds
 
-<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">CM</a>
 
 The simplest fix: pick a different threshold for each group.
 
