@@ -45,6 +45,23 @@ class: center, middle, inverse, title-slide
   background: #ffeeaa;
   text-decoration: none;
 }
+.cm-corner {
+  position: absolute;
+  top: 90px;
+  right: 40px;
+  border-collapse: collapse;
+  font-size: 90%;
+}
+.cm-corner th, .cm-corner td {
+  border: 1px solid #888;
+  padding: 8px 14px;
+  text-align: center;
+  font-weight: bold;
+}
+.cm-tp { background: #c8e6c9; color: #1b5e20; }
+.cm-fn { background: #ffe0b2; color: #e65100; }
+.cm-fp { background: #ffcdd2; color: #b71c1c; }
+.cm-tn { background: #bbdefb; color: #0d47a1; }
 &lt;/style&gt;
 
 
@@ -67,7 +84,7 @@ class: center, middle, inverse, title-slide
 
 # From Module 3: We Saw the Gaps
 
-&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+&lt;a class="metrics-ref" href="#metrics-ref"&gt;📊 metrics ref&lt;/a&gt;
 
 Module 3's audit showed that the same model could have:
 
@@ -141,7 +158,7 @@ Each one says something different about what "fair" means. Let's read each.
 
 # 2. Equalized Odds
 
-&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+&lt;a class="metrics-ref" href="#metrics-ref"&gt;📊 metrics ref&lt;/a&gt;
 
 `$$P(\hat Y = 1 \mid Y = 1, A = 0) = P(\hat Y = 1 \mid Y = 1, A = 1) \quad \text{(equal TPR)}$$`
 `$$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{(equal FPR)}$$`
@@ -165,7 +182,7 @@ Each one says something different about what "fair" means. Let's read each.
 
 # 3. Predictive Parity
 
-&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+&lt;a class="metrics-ref" href="#metrics-ref"&gt;📊 metrics ref&lt;/a&gt;
 
 `$$P(Y = 1 \mid \hat Y = 1, A = 0) = P(Y = 1 \mid \hat Y = 1, A = 1)$$`
 
@@ -213,7 +230,7 @@ If you enforce two, the third **must** break.
 
 # The COMPAS Argument, Revisited
 
-&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+&lt;a class="metrics-ref" href="#metrics-ref"&gt;📊 metrics ref&lt;/a&gt;
 
 Module 3 showed how COMPAS triggered a famous fairness debate:
 
@@ -233,7 +250,7 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 
 # Empirical Demonstration: Same Data, Sweep the Threshold
 
-&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+&lt;a class="metrics-ref" href="#metrics-ref"&gt;📊 metrics ref&lt;/a&gt;
 
 
 
@@ -264,7 +281,7 @@ Three injection points:
 
 # Post-Processing: Group-Specific Thresholds
 
-&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+&lt;a class="metrics-ref" href="#metrics-ref"&gt;📊 metrics ref&lt;/a&gt;
 
 The simplest fix: pick a different threshold for each group.
 
@@ -327,6 +344,34 @@ class: inverse
 &lt;/table&gt;
 
 Say **"start module 12"** when ready.
+
+---
+name: metrics-ref
+
+# Reference: Metrics from the Confusion Matrix
+
+&lt;table class="cm-corner"&gt;
+&lt;tr&gt;&lt;th&gt;&lt;/th&gt;&lt;th&gt;Pred = 1&lt;/th&gt;&lt;th&gt;Pred = 0&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;th&gt;Actual = 1&lt;/th&gt;&lt;td class="cm-tp"&gt;TP&lt;/td&gt;&lt;td class="cm-fn"&gt;FN&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;th&gt;Actual = 0&lt;/th&gt;&lt;td class="cm-fp"&gt;FP&lt;/td&gt;&lt;td class="cm-tn"&gt;TN&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+- **Accuracy** = `\(\dfrac{\color{#1b5e20}{TP} + \color{#0d47a1}{TN}}{\color{#1b5e20}{TP} + \color{#e65100}{FN} + \color{#b71c1c}{FP} + \color{#0d47a1}{TN}}\)` — overall fraction correct
+
+- **Precision** = `\(\dfrac{\color{#1b5e20}{TP}}{\color{#1b5e20}{TP} + \color{#b71c1c}{FP}}\)` — of what I predicted positive, how many were real?
+
+- **True positive rate (recall)** = `\(\dfrac{\color{#1b5e20}{TP}}{\color{#1b5e20}{TP} + \color{#e65100}{FN}}\)` — of the real positives, how many did I predict positive?
+
+- **False positive rate** = `\(\dfrac{\color{#b71c1c}{FP}}{\color{#b71c1c}{FP} + \color{#0d47a1}{TN}}\)` — of the real negatives, how many did I predict positive?
+
+- **F1** = `\(2 \cdot \dfrac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}\)` — harmonic mean (penalizes lopsided models)
+
+**Worked example.** 1000 ride requests, positive = "accepted": TP = 480, FN = 220, FP = 130, TN = 170.
+
+`$$\text{accuracy} = \tfrac{480 + 170}{1000} = 0.65 \quad
+\text{precision} = \tfrac{480}{480 + 130} \approx 0.79 \quad
+\text{recall} = \tfrac{480}{480 + 220} \approx 0.69 \quad
+\text{FPR} = \tfrac{130}{300} \approx 0.43$$`
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>

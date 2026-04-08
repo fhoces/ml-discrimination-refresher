@@ -35,6 +35,23 @@ output:
   background: #ffeeaa;
   text-decoration: none;
 }
+.cm-corner {
+  position: absolute;
+  top: 90px;
+  right: 40px;
+  border-collapse: collapse;
+  font-size: 90%;
+}
+.cm-corner th, .cm-corner td {
+  border: 1px solid #888;
+  padding: 8px 14px;
+  text-align: center;
+  font-weight: bold;
+}
+.cm-tp { background: #c8e6c9; color: #1b5e20; }
+.cm-fn { background: #ffe0b2; color: #e65100; }
+.cm-fp { background: #ffcdd2; color: #b71c1c; }
+.cm-tn { background: #bbdefb; color: #0d47a1; }
 ```
 
 ```{r setup, include=FALSE}
@@ -65,7 +82,7 @@ theme_set(theme_minimal(base_size = 14))
 
 # From Module 3: We Saw the Gaps
 
-<a class="metrics-ref" href="../module-03/slides.html#4" target="_blank">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
 
 Module 3's audit showed that the same model could have:
 
@@ -139,7 +156,7 @@ $$P(\hat Y = 1 \mid A = 0) = P(\hat Y = 1 \mid A = 1)$$
 
 # 2. Equalized Odds
 
-<a class="metrics-ref" href="../module-03/slides.html#4" target="_blank">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
 
 $$P(\hat Y = 1 \mid Y = 1, A = 0) = P(\hat Y = 1 \mid Y = 1, A = 1) \quad \text{(equal TPR)}$$
 $$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{(equal FPR)}$$
@@ -163,7 +180,7 @@ $$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{
 
 # 3. Predictive Parity
 
-<a class="metrics-ref" href="../module-03/slides.html#4" target="_blank">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
 
 $$P(Y = 1 \mid \hat Y = 1, A = 0) = P(Y = 1 \mid \hat Y = 1, A = 1)$$
 
@@ -211,7 +228,7 @@ If you enforce two, the third **must** break.
 
 # The COMPAS Argument, Revisited
 
-<a class="metrics-ref" href="../module-03/slides.html#4" target="_blank">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
 
 Module 3 showed how COMPAS triggered a famous fairness debate:
 
@@ -231,7 +248,7 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 
 # Empirical Demonstration: Same Data, Sweep the Threshold
 
-<a class="metrics-ref" href="../module-03/slides.html#4" target="_blank">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
 
 ```{r impossibility-data, include=FALSE}
 set.seed(2024); n <- 5000
@@ -334,7 +351,7 @@ Three injection points:
 
 # Post-Processing: Group-Specific Thresholds
 
-<a class="metrics-ref" href="../module-03/slides.html#4" target="_blank">📊 metrics ref</a>
+<a class="metrics-ref" href="#metrics-ref">📊 metrics ref</a>
 
 The simplest fix: pick a different threshold for each group.
 
@@ -440,3 +457,31 @@ class: inverse
 </table>
 
 Say **"start module 12"** when ready.
+
+---
+name: metrics-ref
+
+# Reference: Metrics from the Confusion Matrix
+
+<table class="cm-corner">
+<tr><th></th><th>Pred = 1</th><th>Pred = 0</th></tr>
+<tr><th>Actual = 1</th><td class="cm-tp">TP</td><td class="cm-fn">FN</td></tr>
+<tr><th>Actual = 0</th><td class="cm-fp">FP</td><td class="cm-tn">TN</td></tr>
+</table>
+
+- **Accuracy** = $\dfrac{\color{#1b5e20}{TP} + \color{#0d47a1}{TN}}{\color{#1b5e20}{TP} + \color{#e65100}{FN} + \color{#b71c1c}{FP} + \color{#0d47a1}{TN}}$ — overall fraction correct
+
+- **Precision** = $\dfrac{\color{#1b5e20}{TP}}{\color{#1b5e20}{TP} + \color{#b71c1c}{FP}}$ — of what I predicted positive, how many were real?
+
+- **True positive rate (recall)** = $\dfrac{\color{#1b5e20}{TP}}{\color{#1b5e20}{TP} + \color{#e65100}{FN}}$ — of the real positives, how many did I predict positive?
+
+- **False positive rate** = $\dfrac{\color{#b71c1c}{FP}}{\color{#b71c1c}{FP} + \color{#0d47a1}{TN}}$ — of the real negatives, how many did I predict positive?
+
+- **F1** = $2 \cdot \dfrac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$ — harmonic mean (penalizes lopsided models)
+
+**Worked example.** 1000 ride requests, positive = "accepted": TP = 480, FN = 220, FP = 130, TN = 170.
+
+$$\text{accuracy} = \tfrac{480 + 170}{1000} = 0.65 \quad
+\text{precision} = \tfrac{480}{480 + 130} \approx 0.79 \quad
+\text{recall} = \tfrac{480}{480 + 220} \approx 0.69 \quad
+\text{FPR} = \tfrac{130}{300} \approx 0.43$$
