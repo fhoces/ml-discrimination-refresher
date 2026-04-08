@@ -248,6 +248,53 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 
 ---
 
+# The Same Argument, with Driver Acceptance
+
+<a class="metrics-ref" href="#metrics-ref">CM</a>
+
+Imagine 1,000 ride requests per group (positive = "actually accepted"). **Note the different base rates** — that's what makes the theorem bite.
+
+<div class="two-col">
+<div class="col-narrow">
+
+**Non-minority** (acceptance rate 60%)
+
+|              | Pred = 1 | Pred = 0 |
+|--------------|----------|----------|
+| Actual = 1   | 540      | 60       |
+| Actual = 0   | 95       | 305      |
+
+</div>
+<div class="col-narrow">
+
+**Minority** (acceptance rate 40%)
+
+|              | Pred = 1 | Pred = 0 |
+|--------------|----------|----------|
+| Actual = 1   | 240      | 160      |
+| Actual = 0   | 40       | 560      |
+
+</div>
+</div>
+
+--
+
+**Precision = TP / (TP + FP)** — when the model says "accept", how often is it right?
+
+$$\text{Non-minority: } \tfrac{540}{540 + 95} \approx 0.85 \qquad \text{Minority: } \tfrac{240}{240 + 40} \approx 0.86$$
+
+**Equal precision → predictive parity holds ✓** (Northpointe's argument).
+
+--
+
+**TPR = TP / (TP + FN)** — of the riders who *would* be accepted, how many does the model catch?
+
+$$\text{Non-minority: } \tfrac{540}{540 + 60} = 0.90 \qquad \text{Minority: } \tfrac{240}{240 + 160} = 0.60$$
+
+**TPR gap of 0.30 → equalized odds broken ✗** (ProPublica's argument). Same model, both sides right.
+
+---
+
 # Empirical Demonstration: Same Data, Sweep the Threshold
 
 <a class="metrics-ref" href="#metrics-ref">CM</a>
