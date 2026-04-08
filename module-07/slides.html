@@ -28,6 +28,25 @@ class: center, middle, inverse, title-slide
 .two-col { display: flex; align-items: flex-start; gap: 1em; }
 .col-narrow { flex: 1; }
 .col-wide   { flex: 2; }
+
+.metrics-ref {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  background: #fff8dc;
+  border: 1px solid #d4b400;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  text-decoration: none;
+  color: #6b5a00;
+  font-weight: bold;
+  z-index: 50;
+}
+.metrics-ref:hover {
+  background: #ffeeaa;
+  text-decoration: none;
+}
 &lt;/style&gt;
 
 
@@ -49,6 +68,8 @@ class: center, middle, inverse, title-slide
 ---
 
 # From Module 3: We Saw the Gaps
+
+&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
 
 Module 3's audit showed that the same model could have:
 
@@ -122,6 +143,8 @@ Each one says something different about what "fair" means. Let's read each.
 
 # 2. Equalized Odds
 
+&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+
 `$$P(\hat Y = 1 \mid Y = 1, A = 0) = P(\hat Y = 1 \mid Y = 1, A = 1) \quad \text{(equal TPR)}$$`
 `$$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{(equal FPR)}$$`
 
@@ -139,6 +162,8 @@ Each one says something different about what "fair" means. Let's read each.
 ---
 
 # 3. Predictive Parity
+
+&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
 
 `$$P(Y = 1 \mid \hat Y = 1, A = 0) = P(Y = 1 \mid \hat Y = 1, A = 1)$$`
 
@@ -175,6 +200,8 @@ If you enforce two, the third **must** break.
 
 # The COMPAS Argument, Revisited
 
+&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
+
 Module 3 showed how COMPAS triggered a famous fairness debate:
 
 --
@@ -192,6 +219,8 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 ---
 
 # Empirical Demonstration: Same Data, Sweep the Threshold
+
+&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
 
 
 
@@ -221,6 +250,8 @@ Three injection points:
 ---
 
 # Post-Processing: Group-Specific Thresholds
+
+&lt;a class="metrics-ref" href="../module-03/slides.html#4" target="_blank"&gt;📊 metrics ref&lt;/a&gt;
 
 The simplest fix: pick a different threshold for each group.
 
