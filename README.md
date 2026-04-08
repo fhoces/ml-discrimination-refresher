@@ -49,7 +49,7 @@ and `ggrepel`. Install with `install.packages(...)` as needed.
 | 4 | Tree-Based Methods | Decision trees, Random Forest, XGBoost, SHAP | Surge pricing & geographic redlining |
 | 6 | Unsupervised Learning | PCA, K-means, hierarchical clustering, UMAP | Rider segmentation that mirrors demographics |
 | 7 | Neural Networks | Perceptrons, backprop, SGD/Adam | Deep pricing models — auditing the un-interpretable |
-| 11 | Fairness Frameworks | Demographic parity, equalized odds, predictive parity, impossibility theorem | Fair dispatch under accuracy/fairness tradeoff |
+| **11** | [Fairness Frameworks & Metrics](module-11/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-11/slides.html)) | Demographic parity, equalized odds, predictive parity, impossibility theorem | Fair dispatch under accuracy/fairness tradeoff |
 | 12 | Auditing & Interpretability | SHAP, LIME, partial dependence, counterfactuals | A full audit report for a ride-sharing model |
 
 The numbering preserves the original learning plan; modules 5, 8–10 are

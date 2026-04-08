@@ -37,7 +37,7 @@ theme_set(theme_minimal(base_size = 14))
 <tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
 <tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
 <tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
-<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>11</td><td><a href="../module-11/slides.html">Fairness Frameworks &amp; Metrics</a></td><td>✓ done</td></tr>
 <tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
 </table>
 
@@ -916,6 +916,6 @@ class: inverse
 <tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
 <tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
 <tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
-<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>11</td><td><a href="../module-11/slides.html">Fairness Frameworks &amp; Metrics</a></td><td>✓ done</td></tr>
 <tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
 </table>

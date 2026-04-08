@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Module 11: Fairness Frameworks &amp; Metrics</title>
+    <meta charset="utf-8" />
+    <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
+    <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Module 11: Fairness Frameworks &amp; Metrics
+]
+.subtitle[
+## When You Can’t Be Fair in More Than One Way
+]
+
+---
+
+
+&lt;style type="text/css"&gt;
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small { font-size: 80%; }
+.two-col { display: flex; align-items: flex-start; gap: 1em; }
+.col-narrow { flex: 1; }
+.col-wide   { flex: 2; }
+&lt;/style&gt;
+
+
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;a href="../module-01/slides.html"&gt;The Learning Problem&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Linear Models&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;11&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Fairness Frameworks &amp;amp; Metrics&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;Auditing &amp;amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+---
+
+# From Module 3: We Saw the Gaps
+
+Module 3's audit showed that the same model could have:
+
+- Equal AUC across groups
+- Different precision, recall, FPR per group
+
+--
+
+That tells us **the model isn't behaving the same for everyone**. But it doesn't tell us:
+
+--
+
+- Which gap matters?
+- What does "fair" actually mean?
+- Can we close all the gaps at once?
+
+--
+
+This module gives you the formal answers, and one **mathematical impossibility result** that says some of those answers exclude each other.
+
+---
+
+# The Setup
+
+For a binary classifier:
+
+- `\(Y \in \{0, 1\}\)` — actual outcome (e.g. driver accepted)
+- `\(\hat{Y} \in \{0, 1\}\)` — model's prediction
+- `\(A\)` — protected attribute (e.g. minority status), used **only** for auditing
+
+--
+
+A "fairness criterion" is some equality between groups defined on `\(Y\)`, `\(\hat{Y}\)`, and `\(A\)`.
+
+--
+
+There are several. The famous ones turn out to be **mutually incompatible**.
+
+---
+
+# Three Fairness Criteria
+
+| Criterion | Equality required |
+|---|---|
+| **Demographic parity** | `\(P(\hat Y = 1 \mid A = 0) = P(\hat Y = 1 \mid A = 1)\)` |
+| **Equalized odds** | `\(P(\hat Y = 1 \mid Y = y, A = 0) = P(\hat Y = 1 \mid Y = y, A = 1)\)` for `\(y \in \{0, 1\}\)` |
+| **Predictive parity** | `\(P(Y = 1 \mid \hat Y = 1, A = 0) = P(Y = 1 \mid \hat Y = 1, A = 1)\)` |
+
+--
+
+Each one says something different about what "fair" means. Let's read each.
+
+---
+
+# 1. Demographic Parity
+
+`$$P(\hat Y = 1 \mid A = 0) = P(\hat Y = 1 \mid A = 1)$$`
+
+**The model says "accept" at the same rate for both groups.**
+
+--
+
+- Cares only about the model's outputs, **ignores the actual labels**
+- Makes sense when the positive decision is itself the resource (a job offer, a loan, an Uber dispatch)
+
+--
+
+**Failure mode:** if base rates genuinely differ, hitting equal positive rates forces the model to *miss real positives* in one group or *flag real negatives* in the other.
+
+---
+
+# 2. Equalized Odds
+
+`$$P(\hat Y = 1 \mid Y = 1, A = 0) = P(\hat Y = 1 \mid Y = 1, A = 1) \quad \text{(equal TPR)}$$`
+`$$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{(equal FPR)}$$`
+
+**Among the actually-positive, catch the same fraction in each group. Among the actually-negative, falsely flag at the same rate.**
+
+--
+
+- Allows different positive rates *only if the truth says so*
+- Weaker version, **equal opportunity**, only requires equal TPR
+
+--
+
+**Makes sense when:** there's a real outcome you care about and missing it has direct human cost (medical, fraud, dispatch).
+
+---
+
+# 3. Predictive Parity
+
+`$$P(Y = 1 \mid \hat Y = 1, A = 0) = P(Y = 1 \mid \hat Y = 1, A = 1)$$`
+
+**A "positive" prediction means the same thing in each group** — equal precision.
+
+--
+
+- Stronger version: **calibration within groups**. At every score `\(s\)`, the actual positive rate is `\(s\)` in both groups.
+- This is what Module 3's calibration discussion sets up.
+
+--
+
+**Makes sense when:** the model's score is interpreted directly by downstream users — risk scores, lending probabilities, recidivism estimates.
+
+---
+
+# The Impossibility Theorem
+
+&gt; **Chouldechova (2017) / Kleinberg, Mullainathan &amp; Raghavan (2017):** if base rates differ between groups, `\(P(Y = 1 \mid A = 0) \neq P(Y = 1 \mid A = 1)\)`, and the classifier is not perfect, then **at most one of {demographic parity, equalized odds, predictive parity}** can hold.
+
+--
+
+This is **not a quirk of any model**. It is a mathematical fact about the joint distribution of `\(Y\)`, `\(\hat Y\)`, `\(A\)`.
+
+--
+
+If you enforce two, the third **must** break.
+
+--
+
+**This is why fairness is a choice, not a calculation.**
+
+---
+
+# The COMPAS Argument, Revisited
+
+Module 3 showed how COMPAS triggered a famous fairness debate:
+
+--
+
+- **ProPublica** said: COMPAS is unfair — it has a **higher FPR for Black defendants** (innocent people flagged at twice the rate). Equalized odds is broken.
+
+--
+
+- **Northpointe** said: COMPAS is fair — a score of 7 means the same recidivism risk for Black and white defendants. **Predictive parity holds**.
+
+--
+
+- **Both were right.** Base rates differ; the impossibility theorem says you cannot satisfy both at once. Choosing which to break is a value judgment, not a math error.
+
+---
+
+# Empirical Demonstration: Same Data, Sweep the Threshold
+
+
+
+&lt;img src="slides_files/figure-html/impossibility-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# How Do You Enforce a Criterion?
+
+Three injection points:
+
+--
+
+**Pre-processing** — massage the training data (reweight, resample, transform features) before training.
+- Pros: model-agnostic. Cons: throws away signal; the model can relearn proxies.
+
+--
+
+**In-processing** — modify the training objective (fairness penalty, adversarial debiasing).
+- Pros: principled. Cons: needs custom training code.
+
+--
+
+**Post-processing** — adjust the **decision rule** per group on the trained model's scores.
+- Pros: simplest, model-agnostic. Cons: explicitly uses the protected attribute at decision time, often illegal.
+
+---
+
+# Post-Processing: Group-Specific Thresholds
+
+The simplest fix: pick a different threshold for each group.
+
+--
+
+
+|Metric                 | Before|  After|
+|:----------------------|------:|------:|
+|Demographic parity gap | -0.421|  0.000|
+|TPR gap (eq. opp.)     | -0.324|  0.030|
+|Precision gap          | -0.028| -0.162|
+
+--
+
+We **closed the demographic parity gap** by using thresholds 0.66 (majority) and 0.35 (minority). But the **TPR gap got worse** — exactly what the impossibility theorem predicts.
+
+---
+
+# Accuracy vs Fairness Frontier
+
+&lt;img src="slides_files/figure-html/frontier-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+Every fairness intervention sits **somewhere on this curve**. Math draws the curve; humans pick the point.
+
+---
+class: inverse
+
+# The Key Questions
+
+&lt;br&gt;
+
+### 1. Which fairness criterion are you protecting? Why that one?
+
+--
+
+&lt;br&gt;
+
+### 2. What does enforcing it cost — in accuracy, *and* in the other criteria?
+
+--
+
+&lt;br&gt;
+
+### 3. Who gets to make that choice? (Spoiler: it's not the data scientist alone.)
+
+---
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;a href="../module-01/slides.html"&gt;The Learning Problem&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Linear Models&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;11&lt;/td&gt;&lt;td&gt;Fairness Frameworks &amp;amp; Metrics &lt;i&gt;(just finished)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;12&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Auditing &amp;amp; Interpretability&lt;/b&gt;&lt;/td&gt;&lt;td&gt;next&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+Say **"start module 12"** when ready.
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
