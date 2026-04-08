@@ -252,11 +252,12 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 
 <a class="metrics-ref" href="#metrics-ref">CM</a>
 
-Imagine 1,000 ride requests per group (positive = "actually accepted"). **Note the different base rates** — that's what makes the theorem bite.
+.small[
+1,000 ride requests per group (positive = "actually accepted"). **Different base rates** — that's what makes the theorem bite.
 
 <div class="two-col">
 <div class="col-narrow">
-<p><b>Non-minority</b> (acceptance rate 60%)</p>
+<p><b>Non-minority</b> (60% accept)</p>
 <table>
 <tr><th></th><th>Pred = 1</th><th>Pred = 0</th></tr>
 <tr><th>Actual = 1</th><td>540</td><td>60</td></tr>
@@ -264,7 +265,7 @@ Imagine 1,000 ride requests per group (positive = "actually accepted"). **Note t
 </table>
 </div>
 <div class="col-narrow">
-<p><b>Minority</b> (acceptance rate 40%)</p>
+<p><b>Minority</b> (40% accept)</p>
 <table>
 <tr><th></th><th>Pred = 1</th><th>Pred = 0</th></tr>
 <tr><th>Actual = 1</th><td>240</td><td>160</td></tr>
@@ -273,21 +274,14 @@ Imagine 1,000 ride requests per group (positive = "actually accepted"). **Note t
 </div>
 </div>
 
---
+**Precision** = TP / (TP+FP) — when the model says "accept", how often right?
+$\text{Non-min: } \tfrac{540}{540 + 95} \approx 0.85 \quad \text{Min: } \tfrac{240}{240 + 40} \approx 0.86$ → **predictive parity holds ✓** (Northpointe)
 
-**Precision = TP / (TP + FP)** — when the model says "accept", how often is it right?
+**TPR** = TP / (TP+FN) — of riders who *would* be accepted, how many caught?
+$\text{Non-min: } \tfrac{540}{540 + 60} = 0.90 \quad \text{Min: } \tfrac{240}{240 + 160} = 0.60$ → **equalized odds broken ✗** (ProPublica)
 
-$$\text{Non-minority: } \tfrac{540}{540 + 95} \approx 0.85 \qquad \text{Minority: } \tfrac{240}{240 + 40} \approx 0.86$$
-
-**Equal precision → predictive parity holds ✓** (Northpointe's argument).
-
---
-
-**TPR = TP / (TP + FN)** — of the riders who *would* be accepted, how many does the model catch?
-
-$$\text{Non-minority: } \tfrac{540}{540 + 60} = 0.90 \qquad \text{Minority: } \tfrac{240}{240 + 160} = 0.60$$
-
-**TPR gap of 0.30 → equalized odds broken ✗** (ProPublica's argument). Same model, both sides right.
+**TPR gap of 0.30 on the same model — both sides right.**
+]
 
 ---
 
