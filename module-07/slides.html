@@ -254,7 +254,6 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 
 &lt;a class="metrics-ref" href="#metrics-ref"&gt;CM&lt;/a&gt;
 
-.small[
 1,000 ride requests per group (positive = "actually accepted"). **Different base rates** — that's what makes the theorem bite.
 
 &lt;div class="two-col"&gt;
@@ -276,14 +275,11 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 &lt;/div&gt;
 &lt;/div&gt;
 
-**Precision** = TP / (TP+FP) — when the model says "accept", how often right?
-`\(\text{Non-min: } \tfrac{540}{540 + 95} \approx 0.85 \quad \text{Min: } \tfrac{240}{240 + 40} \approx 0.86\)` → **predictive parity holds ✓** (Northpointe)
+**Precision** = TP/(TP+FP): non-min `\(\tfrac{540}{635} \approx 0.85\)`, min `\(\tfrac{240}{280} \approx 0.86\)` → **predictive parity ✓** (Northpointe)
 
-**TPR** = TP / (TP+FN) — of riders who *would* be accepted, how many caught?
-`\(\text{Non-min: } \tfrac{540}{540 + 60} = 0.90 \quad \text{Min: } \tfrac{240}{240 + 160} = 0.60\)` → **equalized odds broken ✗** (ProPublica)
+**TPR** = TP/(TP+FN): non-min `\(\tfrac{540}{600} = 0.90\)`, min `\(\tfrac{240}{400} = 0.60\)` → **equalized odds ✗** (ProPublica)
 
 **TPR gap of 0.30 on the same model — both sides right.**
-]
 
 ---
 
