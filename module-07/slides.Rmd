@@ -171,12 +171,23 @@ $$P(Y = 1 \mid \hat Y = 1, A = 0) = P(Y = 1 \mid \hat Y = 1, A = 1)$$
 
 --
 
-- Stronger version: **calibration within groups**. At every score $s$, the actual positive rate is $s$ in both groups.
-- This is what Module 3's calibration discussion sets up.
+**Worked example.** A driver-acceptance model flags 200 ride requests as "will accept" in each group. After observing actual outcomes:
+
+| | Predicted accept | Actually accepted | Precision |
+|---|---|---|---|
+| Non-minority | 200 | 170 | 170/200 = **0.85** |
+| Minority     | 200 | 168 | 168/200 = **0.84** |
+
+These precisions are essentially equal → **predictive parity holds**. When the model says "accept", it's right ~85% of the time *regardless of group*.
 
 --
 
-**Makes sense when:** the model's score is interpreted directly by downstream users — risk scores, lending probabilities, recidivism estimates.
+- **Stronger version:** *calibration within groups*. At every probability score $s$, the actual rate equals $s$ in **both** groups (not just at the threshold).
+- This is exactly the per-group calibration check from Module 3 — re-read as a fairness criterion.
+
+--
+
+**Failure mode:** says nothing about the *innocent* (the negatives). Two models can have identical precision yet flag innocent minority riders at twice the rate — predictive parity is satisfied while equalized odds is not.
 
 ---
 
