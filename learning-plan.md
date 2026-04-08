@@ -9,9 +9,9 @@ applies it to a real discrimination scenario — all exercises in R.
 | Block | Modules | Time | Focus |
 |-------|---------|------|-------|
 | **A** | 1–3 | 2.5h | Foundations + evaluation |
-| **B** | 4 + 6 | 2h | Trees/boosting + clustering |
-| **C** | 7 | 1.5h | Neural net basics |
-| **D** | 11–12 | 2.5h | Fairness frameworks + auditing |
+| **B** | 4 + 5 | 2h | Trees/boosting + clustering |
+| **C** | 6 | 1.5h | Neural net basics |
+| **D** | 7–8 | 2.5h | Fairness frameworks + auditing |
 | **Buffer** | — | 1.5h | Deep dives on what interests you most |
 
 ---
@@ -65,7 +65,7 @@ applies it to a real discrimination scenario — all exercises in R.
   predictions. Compare a model trained with vs. without geographic features.
 - **R tools:** `rpart`, `rpart.plot`, `ranger`, `xgboost`, `SHAPforxgboost`
 
-### 6. Unsupervised Learning
+### 5. Unsupervised Learning
 - PCA, K-means, hierarchical clustering, UMAP
 - **Application — Rider and driver segmentation:** Platforms cluster users
   for marketing and service tiers. These clusters can mirror demographic
@@ -79,7 +79,7 @@ applies it to a real discrimination scenario — all exercises in R.
 
 ## Phase 3: Neural Networks (1.5h)
 
-### 7. Neural Networks Foundations
+### 6. Neural Networks Foundations
 - Perceptrons, multi-layer networks, backpropagation, SGD/Adam
 - **Application — Dynamic pricing with deep models:** Neural net pricing
   models are harder to interpret than linear ones. When a deep model sets
@@ -93,7 +93,7 @@ applies it to a real discrimination scenario — all exercises in R.
 
 ## Phase 4: Fairness & Auditing (2.5h)
 
-### 11. Fairness Frameworks & Metrics
+### 7. Fairness Frameworks & Metrics
 - Demographic parity, equalized odds, predictive parity, individual fairness
 - Impossibility theorem: you can't satisfy all fairness criteria simultaneously
 - Pre-processing (reweighting), in-processing (constraints), post-processing
@@ -105,7 +105,7 @@ applies it to a real discrimination scenario — all exercises in R.
   with the `fairness` package. Measure the accuracy-fairness tradeoff.
 - **R tools:** `fairness`, `mlr3fairness`, `ggplot2`
 
-### 12. Auditing & Interpretability
+### 8. Auditing & Interpretability
 - SHAP, LIME, partial dependence plots, counterfactual explanations
 - Audit methodologies: correspondence studies, outcome tests
 - **Application — Auditing Uber's algorithm:** Replicate (in simplified form)

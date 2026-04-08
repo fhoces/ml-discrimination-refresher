@@ -47,13 +47,10 @@ and `ggrepel`. Install with `install.packages(...)` as needed.
 | **2** | [Linear Models](module-02/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-02/slides.html)) | Linear & logistic regression, Ridge / Lasso / Elastic Net | Driver acceptance & proxy discrimination |
 | **3** | [Model Evaluation & Selection](module-03/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-03/slides.html)) | Confusion matrix, precision / recall / FPR, ROC-AUC, calibration, k-fold CV | Auditing the acceptance model — equal AUC ≠ equal treatment |
 | 4 | Tree-Based Methods | Decision trees, Random Forest, XGBoost, SHAP | Surge pricing & geographic redlining |
-| 6 | Unsupervised Learning | PCA, K-means, hierarchical clustering, UMAP | Rider segmentation that mirrors demographics |
-| 7 | Neural Networks | Perceptrons, backprop, SGD/Adam | Deep pricing models — auditing the un-interpretable |
-| **11** | [Fairness Frameworks & Metrics](module-11/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-11/slides.html)) | Demographic parity, equalized odds, predictive parity, impossibility theorem | Fair dispatch under accuracy/fairness tradeoff |
-| 12 | Auditing & Interpretability | SHAP, LIME, partial dependence, counterfactuals | A full audit report for a ride-sharing model |
-
-The numbering preserves the original learning plan; modules 5, 8–10 are
-intentionally skipped.
+| 5 | Unsupervised Learning | PCA, K-means, hierarchical clustering, UMAP | Rider segmentation that mirrors demographics |
+| 6 | Neural Networks | Perceptrons, backprop, SGD/Adam | Deep pricing models — auditing the un-interpretable |
+| **7** | [Fairness Frameworks & Metrics](module-07/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-07/slides.html)) | Demographic parity, equalized odds, predictive parity, impossibility theorem | Fair dispatch under accuracy/fairness tradeoff |
+| 8 | Auditing & Interpretability | SHAP, LIME, partial dependence, counterfactuals | A full audit report for a ride-sharing model |
 
 ## Key papers & references
 

@@ -1,5 +1,5 @@
 ---
-title: "Module 11: Fairness Frameworks & Metrics"
+title: "Module 7: Fairness Frameworks & Metrics"
 subtitle: "When You Can't Be Fair in More Than One Way"
 output:
   xaringan::moon_reader:
@@ -38,10 +38,10 @@ theme_set(theme_minimal(base_size = 14))
 <tr><td>2</td><td><a href="../module-02/slides.html">Linear Models</a></td><td>✓ done</td></tr>
 <tr><td>3</td><td><a href="../module-03/slides.html">Model Evaluation &amp; Selection</a></td><td>✓ done</td></tr>
 <tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
-<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
-<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
-<tr><td><b>11</b></td><td><b>Fairness Frameworks &amp; Metrics</b> <i>(you are here)</i></td><td>← current</td></tr>
-<tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
+<tr><td>5</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>6</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td><b>7</b></td><td><b>Fairness Frameworks &amp; Metrics</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>8</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
 </table>
 
 ---
@@ -389,10 +389,10 @@ class: inverse
 <tr><td>2</td><td><a href="../module-02/slides.html">Linear Models</a></td><td>✓ done</td></tr>
 <tr><td>3</td><td><a href="../module-03/slides.html">Model Evaluation &amp; Selection</a></td><td>✓ done</td></tr>
 <tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
-<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
-<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
-<tr><td>11</td><td>Fairness Frameworks &amp; Metrics <i>(just finished)</i></td><td>✓ done</td></tr>
-<tr><td><b>12</b></td><td><b>Auditing &amp; Interpretability</b></td><td>next</td></tr>
+<tr><td>5</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>6</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td>7</td><td>Fairness Frameworks &amp; Metrics <i>(just finished)</i></td><td>✓ done</td></tr>
+<tr><td><b>8</b></td><td><b>Auditing &amp; Interpretability</b></td><td>next</td></tr>
 </table>
 
 Say **"start module 12"** when ready.

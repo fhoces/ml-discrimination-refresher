@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="" xml:lang="">
   <head>
-    <title>Module 11: Fairness Frameworks &amp; Metrics</title>
+    <title>Module 7: Fairness Frameworks &amp; Metrics</title>
     <meta charset="utf-8" />
     <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
     <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
@@ -12,7 +12,7 @@
 class: center, middle, inverse, title-slide
 
 .title[
-# Module 11: Fairness Frameworks &amp; Metrics
+# Module 7: Fairness Frameworks &amp; Metrics
 ]
 .subtitle[
 ## When You Can’t Be Fair in More Than One Way
@@ -40,10 +40,10 @@ class: center, middle, inverse, title-slide
 &lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Linear Models&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;&lt;b&gt;11&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Fairness Frameworks &amp;amp; Metrics&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;Auditing &amp;amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;7&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Fairness Frameworks &amp;amp; Metrics&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;8&lt;/td&gt;&lt;td&gt;Auditing &amp;amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;
 
 ---
@@ -276,10 +276,10 @@ class: inverse
 &lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Linear Models&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
 &lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;11&lt;/td&gt;&lt;td&gt;Fairness Frameworks &amp;amp; Metrics &lt;i&gt;(just finished)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;&lt;b&gt;12&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Auditing &amp;amp; Interpretability&lt;/b&gt;&lt;/td&gt;&lt;td&gt;next&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Fairness Frameworks &amp;amp; Metrics &lt;i&gt;(just finished)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;8&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Auditing &amp;amp; Interpretability&lt;/b&gt;&lt;/td&gt;&lt;td&gt;next&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;
 
 Say **"start module 12"** when ready.
