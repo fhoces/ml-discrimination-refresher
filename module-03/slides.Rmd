@@ -447,7 +447,23 @@ Overall AUC looks fine, but the model **predicts "accept" for minority requests 
 
 --
 
-In R: `group_by(group) |> yardstick::metrics(truth, prediction)`. Done.
+In R, the entire audit is one pipe. Pretend our test set has columns
+`is_minority`, `truth` (actual), and `pred_class` (model output):
+
+```r
+test |>
+  group_by(is_minority) |>
+  yardstick::metrics(truth = truth, estimate = pred_class)
+```
+
+| is_minority | .metric  | .estimator | .estimate |
+|-------------|----------|------------|-----------|
+| 0           | accuracy | binary     | 0.78      |
+| 0           | kap      | binary     | 0.55      |
+| 1           | accuracy | binary     | 0.69      |
+| 1           | kap      | binary     | 0.31      |
+
+`group_by` slices the data; `yardstick` runs whatever metric you ask for once per slice. **No new math — just discipline.**
 
 ---
 class: inverse, center, middle
