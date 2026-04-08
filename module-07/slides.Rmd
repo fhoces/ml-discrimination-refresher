@@ -281,6 +281,35 @@ Module 3 showed how COMPAS triggered a famous fairness debate:
 
 ---
 
+# When Predictive Parity Wins: A Cancer Screen
+
+<a class="metrics-ref" href="#metrics-ref">CM</a>
+
+Imagine a screening test for treatable cancer. Two populations: A (5% prevalence) and B (10%). Same model, two ways to "fix" fairness.
+
+--
+
+**Equalized odds.** Force equal TPR and FPR across groups. Then a "positive" test result means **different actual probabilities** in the two groups — perhaps $P(\text{cancer} \mid +) = 0.30$ in A, $0.50$ in B.
+
+The doctor now has to **mentally re-weight every score** by the patient's group — exactly the kind of explicit demographic-aware decision that fairness was supposed to prevent.
+
+--
+
+**Predictive parity.** Force $P(\text{cancer} \mid +)$ to equal the same value in both groups. The number on the page means what it says, regardless of who the patient is.
+
+Cost: more healthy patients in B get false alarms (because more sick patients in B → any threshold catches more of both).
+
+--
+
+**Which to prioritize depends on how the score is consumed:**
+
+- Fixed cutoff → harm concentrated on false positives → **equalized odds** (COMPAS, hiring, fraud)
+- Score interpreted as a probability by a downstream decision-maker → **predictive parity** (medical risk, credit risk, weather)
+
+ProPublica's intuition fit COMPAS because judges *used* the score as a near-binary cutoff. Had it been used as a calibrated probability, Northpointe's defense would have been stronger.
+
+---
+
 # Empirical Demonstration: Same Data, Sweep the Threshold
 
 <a class="metrics-ref" href="#metrics-ref">CM</a>
