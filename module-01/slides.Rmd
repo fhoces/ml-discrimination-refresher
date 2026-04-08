@@ -1,0 +1,921 @@
+---
+title: "Module 1: The Learning Problem"
+subtitle: "Disparate Wait Times in Ride-Sharing"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td><b>1</b></td><td><b>The Learning Problem</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Linear Models</a></td><td>✓</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Model Evaluation &amp; Selection</a></td><td>✓</td></tr>
+<tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
+<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
+</table>
+
+---
+
+# The Setup
+
+We observe data $(X, Y)$ and want to learn a function $f$ such that
+
+$$Y = f(X) + \varepsilon, \quad \mathbb{E}[\varepsilon] = 0, \quad \text{Var}(\varepsilon) = \sigma^2$$
+
+--
+
+- Choose $\hat{f}$ from some model class by minimizing a **loss function** on training data
+
+--
+
+- Evaluate on **held-out** data (validation / test)
+
+--
+
+- $\varepsilon$ is irreducible — no model can eliminate it
+
+---
+
+# Loss Functions
+
+| Task | Loss | Formula |
+|------|------|---------|
+| Regression | MSE | $\frac{1}{n} \sum_i (y_i - \hat{y}_i)^2$ |
+| Classification | 0-1 loss | $\frac{1}{n} \sum_i \mathbb{I}(y_i \neq \hat{y}_i)$ |
+| Classification | Cross-entropy | $-\sum_i y_i \log(\hat{p}_i)$ |
+
+--
+
+- MSE penalizes large errors more heavily
+
+--
+
+- Cross-entropy rewards **well-calibrated probabilities** — preferred for probabilistic classifiers
+
+---
+
+# Train / Validation / Test
+
+| Set | Purpose | When used |
+|-----|---------|-----------|
+| **Training** | Fit the model parameters | During training |
+| **Validation** | Choose hyperparameters, compare models | During model selection |
+| **Test** | Final unbiased performance estimate | Once, at the end |
+
+--
+
+Cross-validation approximates the validation step by rotating through folds.
+
+---
+
+# Example: Validation Picks the Hyperparameter
+
+Train three models on the **same** training set, evaluate on **validation**:
+
+```{r validation-example, echo=TRUE, results='hide'}
+set.seed(99)
+demo <- tibble(x = runif(200, 0, 10),
+               y = sin(x) + rnorm(200, 0, 0.3))
+demo_train <- demo[1:140, ]
+demo_val   <- demo[141:200, ]
+
+# Model A: degree-5 polynomial (less flexible)
+fit_A <- lm(y ~ poly(x, 5), data = demo_train)
+
+# Model B: degree-8 polynomial (moderate flexibility)
+fit_B <- lm(y ~ poly(x, 8), data = demo_train)
+
+# Model C: degree-20 polynomial (very flexible)
+fit_C <- lm(y ~ poly(x, 20), data = demo_train)
+```
+
+---
+
+# Validation Results
+
+```{r validation-results, echo=FALSE}
+# Monte Carlo: simulate 500 training sets to estimate Bias² and Variance
+# Use only interior validation points (x in [2,8]) to avoid polynomial edge effects
+n_sim <- 500
+interior <- which(demo_val$x >= 2 & demo_val$x <= 8)
+x_val <- demo_val$x[interior]
+f_true <- sin(x_val)
+
+preds_A <- preds_B <- preds_C <- matrix(NA, nrow = n_sim, ncol = length(x_val))
+for (s in 1:n_sim) {
+  x_sim <- runif(140, 0, 10)
+  sim <- tibble(x = x_sim, y = sin(x) + rnorm(140, 0, 0.3))
+  preds_A[s, ] <- predict(lm(y ~ poly(x, 5), data = sim), demo_val[interior, ])
+  preds_B[s, ] <- predict(lm(y ~ poly(x, 8), data = sim), demo_val[interior, ])
+  preds_C[s, ] <- predict(lm(y ~ poly(x, 20), data = sim), demo_val[interior, ])
+}
+
+bv <- function(preds, f_true) {
+  mean_pred <- colMeans(preds)
+  bias2 <- mean((f_true - mean_pred)^2)
+  variance <- mean(apply(preds, 2, var))
+  c(bias2, variance)
+}
+
+bv_A <- bv(preds_A, f_true)
+bv_B <- bv(preds_B, f_true)
+bv_C <- bv(preds_C, f_true)
+
+tibble(
+  Model = c("A (degree 5)", "B (degree 8)", "C (degree 20)"),
+  `# Params` = c(6, 9, 21),
+  `Train MSE`  = round(c(mean((demo_train$y - predict(fit_A, demo_train))^2),
+                          mean((demo_train$y - predict(fit_B, demo_train))^2),
+                          mean((demo_train$y - predict(fit_C, demo_train))^2)), 4),
+  `Val MSE`    = round(c(mean((demo_val$y - predict(fit_A, demo_val))^2),
+                          mean((demo_val$y - predict(fit_B, demo_val))^2),
+                          mean((demo_val$y - predict(fit_C, demo_val))^2)), 4)
+) |> knitr::kable()
+```
+
+--
+
+- Model C wins on **training** data (lowest Train MSE) — it memorizes best
+
+--
+
+- Model B wins on **validation** data (lowest Val MSE) — it generalizes best
+
+--
+
+- Too simple (A) → underfits. Too complex (C) → overfits. **Validation finds the sweet spot (B).**
+
+---
+
+# Example: What Validation Reveals
+
+```{r validation-plot, echo=FALSE, fig.height=4.8}
+x_grid <- tibble(x = seq(0, 10, length.out = 300))
+x_grid$pred_A <- predict(fit_A, x_grid)
+x_grid$pred_B <- predict(fit_B, x_grid)
+x_grid$pred_C <- predict(fit_C, x_grid)
+
+# Annotation point: validation point i=15 (x~9.17)
+i_pt <- 18
+x0 <- demo_val$x[i_pt]
+y0 <- demo_val$y[i_pt]
+f0 <- sin(x0)
+pred_A0 <- predict(fit_A, tibble(x = x0))
+
+# Base plot (reused for zoom)
+p_base <- ggplot() +
+  geom_point(data = demo_train, aes(x, y, shape = "Training"), alpha = 0.3, size = 1) +
+  geom_point(data = demo_val, aes(x, y, shape = "Validation"), color = "darkgreen", size = 2) +
+  scale_shape_manual(values = c("Training" = 16, "Validation" = 17)) +
+  geom_line(data = x_grid, aes(x, pred_A, color = "A: degree 5"), linewidth = 1) +
+  geom_line(data = x_grid, aes(x, pred_B, color = "B: degree 8"), linewidth = 1) +
+  geom_line(data = x_grid, aes(x, pred_C, color = "C: degree 20"), linewidth = 1) +
+  stat_function(fun = sin, aes(color = "True f(x) = sin(x)"),
+                linetype = "dashed", linewidth = 0.8)
+
+p_base +
+  labs(title = "Validation selects the hyperparameter (polynomial degree)",
+       subtitle = "Next slide zooms in at the dotted line to show bias and variance",
+       x = "x", y = "y", color = "Fit", shape = "Data") +
+  theme(legend.position = "top")
+```
+
+---
+class: inverse, center, middle
+
+# Bias-Variance Tradeoff
+
+---
+
+# The Decomposition
+
+For any estimate $\hat{f}$, the expected prediction error at a point $x_0$ is:
+
+$$\mathbb{E}\left[(Y - \hat{f}(x_0))^2\right] = \underbrace{\left[\text{Bias}(\hat{f}(x_0))\right]^2}_{\text{systematic error}} + \underbrace{\text{Var}(\hat{f}(x_0))}_{\text{sensitivity to training set}} + \underbrace{\sigma^2}_{\text{irreducible}}$$
+
+--
+
+where:
+
+- $\text{Bias}(\hat{f}(x_0)) = f(x_0) - \mathbb{E}[\hat{f}(x_0)]$
+
+- $\text{Var}(\hat{f}(x_0)) = \mathbb{E}\left[(\hat{f}(x_0) - \mathbb{E}[\hat{f}(x_0)])^2\right]$
+
+---
+
+# Proof — Step 1: Separate Noise from Estimation
+
+Start by substituting $Y = f(x_0) + \varepsilon$:
+
+$$\mathbb{E}[(Y - \hat{f})^2] = \mathbb{E}[((f - \hat{f}) + \varepsilon)^2]$$
+
+--
+
+Expand the square:
+
+$$= \mathbb{E}[(f - \hat{f})^2] + 2\,\mathbb{E}[(f - \hat{f})\,\varepsilon] + \mathbb{E}[\varepsilon^2]$$
+
+--
+
+The cross term vanishes: $\varepsilon$ is independent of $\hat{f}$ and $\mathbb{E}[\varepsilon] = 0$
+
+$$= \mathbb{E}[(f(x_0) - \hat{f}(x_0))^2] + \sigma^2$$
+
+---
+
+# Proof — Step 2: Add and Subtract the Mean
+
+The trick: insert $\mathbb{E}[\hat{f}]$ into the estimation error:
+
+$$f - \hat{f} = \underbrace{(f - \mathbb{E}[\hat{f}])}_{\text{Bias}} + \underbrace{(\mathbb{E}[\hat{f}] - \hat{f})}_{\text{deviation from mean}}$$
+
+--
+
+Square and take expectation:
+
+$$\mathbb{E}[(f - \hat{f})^2] = \text{Bias}^2 + 2 \cdot \text{Bias} \cdot \underbrace{\mathbb{E}[\mathbb{E}[\hat{f}] - \hat{f}]}_{= 0} + \underbrace{\mathbb{E}[(\hat{f} - \mathbb{E}[\hat{f}])^2]}_{\text{Var}(\hat{f})}$$
+
+--
+
+The cross term vanishes because $\mathbb{E}[\hat{f} - \mathbb{E}[\hat{f}]] = 0$.
+
+---
+
+# Proof — Result
+
+$$\boxed{\mathbb{E}\left[(Y - \hat{f}(x_0))^2\right] = \left[\text{Bias}(\hat{f}(x_0))\right]^2 + \text{Var}(\hat{f}(x_0)) + \sigma^2}$$
+
+--
+
+| Component | Simple model (e.g., linear) | Complex model (e.g., degree-20 poly) |
+|-----------|---------------------------|--------------------------------------|
+| Bias² | High | Low |
+| Variance | Low | High |
+
+--
+
+The **sweet spot** minimizes their sum → this is model selection.
+
+---
+
+# Back to Our Models — Where Are We Zooming In?
+
+```{r zoom-context-plain, echo=FALSE, fig.height=4.8}
+zoom_ylim <- c(-1.1, -0.37)
+
+p_base +
+  labs(title = "Validation selects the hyperparameter (polynomial degree)",
+       x = "x", y = "y", color = "Fit", shape = "Data") +
+  theme(legend.position = "top")
+```
+
+---
+count: false
+
+# Back to Our Models — Where Are We Zooming In?
+
+```{r zoom-context-box, echo=FALSE, fig.height=4.8}
+p_base +
+  annotate("rect", xmin = x0 - 1.2, xmax = x0 + 1.2,
+           ymin = zoom_ylim[1], ymax = zoom_ylim[2],
+           fill = NA, color = "black", linewidth = 0.6, linetype = "dashed") +
+  labs(title = "Validation selects the hyperparameter (polynomial degree)",
+       x = "x", y = "y", color = "Fit", shape = "Data") +
+  theme(legend.position = "top")
+```
+
+---
+
+# Seeing It: 100 Simulated Training Sets
+
+```{r validation-zoom, echo=FALSE, fig.height=4.2}
+# Simulate 100 training sets → predictions at x0 for ALL three models (same training data)
+set.seed(42)
+n_sim <- 100
+sim_preds <- sim_preds_B <- sim_preds_C <- numeric(n_sim)
+for (s in 1:n_sim) {
+  x_sim <- runif(140, 0, 10)
+  sim_data <- tibble(x = x_sim, y = sin(x) + rnorm(140, 0, 0.3))
+  sim_preds[s]   <- predict(lm(y ~ poly(x, 5), data = sim_data), tibble(x = x0))
+  sim_preds_B[s] <- predict(lm(y ~ poly(x, 8), data = sim_data), tibble(x = x0))
+  sim_preds_C[s] <- predict(lm(y ~ poly(x, 20), data = sim_data), tibble(x = x0))
+}
+ef0 <- mean(sim_preds); sd0 <- sd(sim_preds)
+ef0_B <- mean(sim_preds_B); sd0_B <- sd(sim_preds_B)
+ef0_C <- mean(sim_preds_C); sd0_C <- sd(sim_preds_C)
+
+# Shared y-limits across all three slides
+shared_ylim <- c(min(f0, y0, sim_preds, sim_preds_B, sim_preds_C) - 0.1,
+                 max(f0, y0, sim_preds, sim_preds_B, sim_preds_C) + 0.1)
+
+# Jitter the 100 predictions horizontally around x0
+sim_df <- tibble(x = x0 + runif(n_sim, -0.15, 0.15), y = sim_preds)
+
+# Simpler base: only true f and Model A
+# Consistent color mapping across all zoomed plots
+model_colors <- scales::hue_pal()(4)
+names(model_colors) <- c("A: degree 5", "B: degree 8", "C: degree 20", "True f(x) = sin(x)")
+
+p_simple <- ggplot() +
+  geom_point(data = demo_train, aes(x, y, shape = "Training"), alpha = 0.3, size = 1.5) +
+  geom_point(data = demo_val, aes(x, y, shape = "Validation"), color = "darkgreen", size = 2) +
+  scale_shape_manual(values = c("Training" = 16, "Validation" = 17)) +
+  geom_line(data = x_grid, aes(x, pred_A, color = "A: degree 5"), linewidth = 1) +
+  stat_function(fun = sin, aes(color = "True f(x) = sin(x)"),
+                linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = model_colors)
+
+p_simple +
+  # Show 100 predictions as orange dots
+  geom_point(data = sim_df, aes(x = x, y = y), color = "orange", alpha = 0.5, size = 2.5) +
+  # Highlight our actual training set's prediction in red (it's on the red line)
+  geom_point(aes(x = x0, y = pred_A0), size = 4, color = "red", shape = 16) +
+  # E[f-hat(x)] — mean of the 100 predictions
+  geom_point(aes(x = x0, y = ef0), size = 6, shape = 4, color = "orange", stroke = 2) +
+  coord_cartesian(xlim = c(x0 - 1.2, x0 + 1.2),
+                  ylim = shared_ylim) +
+  # Bias bracket: f(x) to E[f-hat(x)]
+  annotate("segment", x = x0 + 0.3, xend = x0 + 0.3, y = f0, yend = ef0,
+           color = "firebrick", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.22, xend = x0 + 0.38, y = f0, yend = f0,
+           color = "firebrick", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.22, xend = x0 + 0.38, y = ef0, yend = ef0,
+           color = "firebrick", linewidth = 0.8) +
+  # Epsilon bracket: f(x) to y
+  annotate("segment", x = x0 - 0.3, xend = x0 - 0.3, y = f0, yend = y0,
+           color = "darkgreen", linewidth = 0.8) +
+  annotate("segment", x = x0 - 0.38, xend = x0 - 0.22, y = f0, yend = f0,
+           color = "darkgreen", linewidth = 0.8) +
+  annotate("segment", x = x0 - 0.38, xend = x0 - 0.22, y = y0, yend = y0,
+           color = "darkgreen", linewidth = 0.8) +
+  # Variance bracket: ±1 SD around E[f-hat(x)]
+  annotate("segment", x = x0 + 0.6, xend = x0 + 0.6,
+           y = ef0 - sd0, yend = ef0 + sd0,
+           color = "steelblue", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.52, xend = x0 + 0.68,
+           y = ef0 - sd0, yend = ef0 - sd0,
+           color = "steelblue", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.52, xend = x0 + 0.68,
+           y = ef0 + sd0, yend = ef0 + sd0,
+           color = "steelblue", linewidth = 0.8) +
+  # Color-coded legend in bottom-right
+  annotate("rect", xmin = x0 + 0.72, xmax = x0 + 1.18,
+           ymin = shared_ylim[1] + 0.01, ymax = shared_ylim[1] + 0.40,
+           fill = "white", color = "grey40", linewidth = 0.4) +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.33, hjust = 0,
+           label = paste0("E[f-hat(x)] = ", round(ef0, 2)),
+           size = 3.5, color = "orange", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.25, hjust = 0,
+           label = paste0("Bias = ", round(ef0 - f0, 2)),
+           size = 3.5, color = "firebrick", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.17, hjust = 0,
+           label = paste0("SD = ", round(sd0, 3)),
+           size = 3.5, color = "steelblue", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.09, hjust = 0,
+           label = paste0("epsilon = ", round(y0 - f0, 2)),
+           size = 3.5, color = "darkgreen", fontface = "bold") +
+  labs(title = paste0("100 training sets at x = ", round(x0, 1), " (Model A: degree 5)"),
+       subtitle = "We re-train Model A on 100 different random samples. Each orange dot is one prediction at this x.",
+       x = "x", y = "y", color = "Fit", shape = "Data") +
+  theme(legend.position = "top")
+```
+
+--
+
+**Variance** = spread of the orange dots around their mean. **Bias** = gap between the mean (X) and the true f(x).
+
+---
+
+# Model B (degree 8): Less Bias, More Variance
+
+```{r validation-zoom-B, echo=FALSE, fig.height=4.2}
+# sim_preds_B, ef0_B, sd0_B already computed in the Model A chunk
+pred_B0 <- predict(fit_B, tibble(x = x0))
+
+sim_df_B <- tibble(x = x0 + runif(n_sim, -0.15, 0.15), y = sim_preds_B)
+
+p_simple_B <- ggplot() +
+  geom_point(data = demo_train, aes(x, y, shape = "Training"), alpha = 0.3, size = 1.5) +
+  geom_point(data = demo_val, aes(x, y, shape = "Validation"), color = "darkgreen", size = 2) +
+  scale_shape_manual(values = c("Training" = 16, "Validation" = 17)) +
+  geom_line(data = x_grid, aes(x, pred_B, color = "B: degree 8"), linewidth = 1) +
+  stat_function(fun = sin, aes(color = "True f(x) = sin(x)"),
+                linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = model_colors)
+
+p_simple_B +
+  geom_point(data = sim_df_B, aes(x = x, y = y), color = "orange", alpha = 0.5, size = 2.5) +
+  geom_point(aes(x = x0, y = pred_B0), size = 4, color = "red", shape = 16) +
+  geom_point(aes(x = x0, y = ef0_B), size = 6, shape = 4, color = "orange", stroke = 2) +
+  coord_cartesian(xlim = c(x0 - 1.2, x0 + 1.2),
+                  ylim = shared_ylim) +
+  # Bias bracket
+  annotate("segment", x = x0 + 0.3, xend = x0 + 0.3, y = f0, yend = ef0_B,
+           color = "firebrick", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.22, xend = x0 + 0.38, y = f0, yend = f0,
+           color = "firebrick", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.22, xend = x0 + 0.38, y = ef0_B, yend = ef0_B,
+           color = "firebrick", linewidth = 0.8) +
+  # Epsilon bracket
+  annotate("segment", x = x0 - 0.3, xend = x0 - 0.3, y = f0, yend = y0,
+           color = "darkgreen", linewidth = 0.8) +
+  annotate("segment", x = x0 - 0.38, xend = x0 - 0.22, y = f0, yend = f0,
+           color = "darkgreen", linewidth = 0.8) +
+  annotate("segment", x = x0 - 0.38, xend = x0 - 0.22, y = y0, yend = y0,
+           color = "darkgreen", linewidth = 0.8) +
+  # Variance bracket
+  annotate("segment", x = x0 + 0.6, xend = x0 + 0.6,
+           y = ef0_B - sd0_B, yend = ef0_B + sd0_B,
+           color = "steelblue", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.52, xend = x0 + 0.68,
+           y = ef0_B - sd0_B, yend = ef0_B - sd0_B,
+           color = "steelblue", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.52, xend = x0 + 0.68,
+           y = ef0_B + sd0_B, yend = ef0_B + sd0_B,
+           color = "steelblue", linewidth = 0.8) +
+  # Color-coded legend in bottom-right
+  annotate("rect", xmin = x0 + 0.72, xmax = x0 + 1.18,
+           ymin = shared_ylim[1] + 0.01, ymax = shared_ylim[1] + 0.40,
+           fill = "white", color = "grey40", linewidth = 0.4) +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.33, hjust = 0,
+           label = paste0("E[f-hat(x)] = ", round(ef0_B, 2)),
+           size = 3.5, color = "orange", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.25, hjust = 0,
+           label = paste0("Bias = ", round(ef0_B - f0, 2)),
+           size = 3.5, color = "firebrick", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.17, hjust = 0,
+           label = paste0("SD = ", round(sd0_B, 3)),
+           size = 3.5, color = "steelblue", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.09, hjust = 0,
+           label = paste0("epsilon = ", round(y0 - f0, 2)),
+           size = 3.5, color = "darkgreen", fontface = "bold") +
+  labs(title = paste0("100 training sets at x = ", round(x0, 1), " (Model B: degree 8)"),
+       subtitle = "Compare with previous slide: bias shrinks, but the orange dots spread out (more variance).",
+       x = "x", y = "y", color = "Fit", shape = "Data") +
+  theme(legend.position = "top")
+```
+
+--
+
+Bias is smaller, but variance is larger — the **tradeoff** in action.
+
+---
+
+# Model C (degree 20): Less Bias, More Variance
+
+```{r validation-zoom-C, echo=FALSE, fig.height=4.2}
+# sim_preds_C, ef0_C, sd0_C already computed in the Model A chunk
+pred_C0 <- predict(fit_C, tibble(x = x0))
+
+sim_df_C <- tibble(x = x0 + runif(n_sim, -0.15, 0.15), y = sim_preds_C)
+
+p_simple_C <- ggplot() +
+  geom_point(data = demo_train, aes(x, y, shape = "Training"), alpha = 0.3, size = 1.5) +
+  geom_point(data = demo_val, aes(x, y, shape = "Validation"), color = "darkgreen", size = 2) +
+  scale_shape_manual(values = c("Training" = 16, "Validation" = 17)) +
+  geom_line(data = x_grid, aes(x, pred_C, color = "C: degree 20"), linewidth = 1) +
+  stat_function(fun = sin, aes(color = "True f(x) = sin(x)"),
+                linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = model_colors)
+
+p_simple_C +
+  geom_point(data = sim_df_C, aes(x = x, y = y), color = "orange", alpha = 0.5, size = 2.5) +
+  geom_point(aes(x = x0, y = pred_C0), size = 4, color = "red", shape = 16) +
+  geom_point(aes(x = x0, y = ef0_C), size = 6, shape = 4, color = "orange", stroke = 2) +
+  coord_cartesian(xlim = c(x0 - 1.2, x0 + 1.2),
+                  ylim = shared_ylim) +
+  # Bias bracket
+  annotate("segment", x = x0 + 0.3, xend = x0 + 0.3, y = f0, yend = ef0_C,
+           color = "firebrick", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.22, xend = x0 + 0.38, y = f0, yend = f0,
+           color = "firebrick", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.22, xend = x0 + 0.38, y = ef0_C, yend = ef0_C,
+           color = "firebrick", linewidth = 0.8) +
+  # Epsilon bracket
+  annotate("segment", x = x0 - 0.3, xend = x0 - 0.3, y = f0, yend = y0,
+           color = "darkgreen", linewidth = 0.8) +
+  annotate("segment", x = x0 - 0.38, xend = x0 - 0.22, y = f0, yend = f0,
+           color = "darkgreen", linewidth = 0.8) +
+  annotate("segment", x = x0 - 0.38, xend = x0 - 0.22, y = y0, yend = y0,
+           color = "darkgreen", linewidth = 0.8) +
+  # Variance bracket
+  annotate("segment", x = x0 + 0.6, xend = x0 + 0.6,
+           y = ef0_C - sd0_C, yend = ef0_C + sd0_C,
+           color = "steelblue", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.52, xend = x0 + 0.68,
+           y = ef0_C - sd0_C, yend = ef0_C - sd0_C,
+           color = "steelblue", linewidth = 0.8) +
+  annotate("segment", x = x0 + 0.52, xend = x0 + 0.68,
+           y = ef0_C + sd0_C, yend = ef0_C + sd0_C,
+           color = "steelblue", linewidth = 0.8) +
+  # Color-coded legend in bottom-right
+  annotate("rect", xmin = x0 + 0.72, xmax = x0 + 1.18,
+           ymin = shared_ylim[1] + 0.01, ymax = shared_ylim[1] + 0.40,
+           fill = "white", color = "grey40", linewidth = 0.4) +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.33, hjust = 0,
+           label = paste0("E[f-hat(x)] = ", round(ef0_C, 2)),
+           size = 3.5, color = "orange", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.25, hjust = 0,
+           label = paste0("Bias = ", round(ef0_C - f0, 2)),
+           size = 3.5, color = "firebrick", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.17, hjust = 0,
+           label = paste0("SD = ", round(sd0_C, 3)),
+           size = 3.5, color = "steelblue", fontface = "bold") +
+  annotate("text", x = x0 + 0.75, y = shared_ylim[1] + 0.09, hjust = 0,
+           label = paste0("epsilon = ", round(y0 - f0, 2)),
+           size = 3.5, color = "darkgreen", fontface = "bold") +
+  labs(title = paste0("100 training sets at x = ", round(x0, 1), " (Model C: degree 20)"),
+       subtitle = "Bias nearly gone, but orange dots spread widely — variance dominates.",
+       x = "x", y = "y", color = "Fit", shape = "Data") +
+  theme(legend.position = "top")
+```
+
+--
+
+Most flexible model: bias vanishes but variance explodes — **overfitting**.
+
+---
+
+# Connecting the Pieces: MSE = Bias² + Variance + σ²
+
+```{r mse-decomposition, echo=FALSE}
+# Reuse the Monte Carlo results from the validation-results chunk
+sigma2 <- 0.09  # we set noise = rnorm(n, 0, 0.3), so σ² = 0.3²
+
+# Compute average MSE across all 500 simulated training sets (on interior points)
+n_mc <- nrow(preds_A)
+avg_mse_A <- mean(rowMeans((preds_A - matrix(f_true, n_mc, length(f_true), byrow = TRUE))^2))
+avg_mse_B <- mean(rowMeans((preds_B - matrix(f_true, n_mc, length(f_true), byrow = TRUE))^2))
+avg_mse_C <- mean(rowMeans((preds_C - matrix(f_true, n_mc, length(f_true), byrow = TRUE))^2))
+
+tibble(
+  Model = c("A (degree 5)", "B (degree 8)", "C (degree 20)"),
+  `Bias²` = round(c(bv_A[1], bv_B[1], bv_C[1]), 4),
+  Variance = round(c(bv_A[2], bv_B[2], bv_C[2]), 4),
+  `σ²` = sigma2,
+  `Bias²+Var+σ²` = round(c(bv_A[1]+bv_A[2], bv_B[1]+bv_B[2], bv_C[1]+bv_C[2]) + sigma2, 4),
+  `Avg MSE (500 sims)` = round(c(avg_mse_A, avg_mse_B, avg_mse_C) + sigma2, 4),
+  `Val MSE (1 sample)` = round(c(mean((demo_val$y[interior] - predict(fit_A, demo_val[interior,]))^2),
+                       mean((demo_val$y[interior] - predict(fit_B, demo_val[interior,]))^2),
+                       mean((demo_val$y[interior] - predict(fit_C, demo_val[interior,]))^2)), 4),
+  `Train MSE` = round(c(mean((demo_train$y - predict(fit_A, demo_train))^2),
+                         mean((demo_train$y - predict(fit_B, demo_train))^2),
+                         mean((demo_train$y - predict(fit_C, demo_train))^2)), 4)
+) |> knitr::kable()
+```
+
+--
+
+- **Bias² + Var + σ²** matches **Avg MSE** (averaged over 500 simulations) — the decomposition works!
+
+--
+
+- **Val MSE (1 sample)** is what we observe in practice — a single draw, so it won't match exactly
+
+--
+
+- In practice, you **cannot** compute Bias² or Variance from one training set. The decomposition is a conceptual tool that explains *why* Val MSE has a U-shape
+
+--
+
+- σ² = 0.09 is the **floor** — no model can beat it (irreducible noise)
+
+---
+class: inverse, center, middle
+
+# Discrimination Angle
+### Statistical Bias ≠ Social Bias
+
+---
+
+# Two Kinds of Bias
+
+**Statistical bias:** model's average prediction is off — it systematically over- or under-estimates.
+
+$$\text{Bias} = f(x_0) - \mathbb{E}[\hat{f}(x_0)]$$
+
+Fix: use a more flexible model.
+
+--
+
+**Social bias (disparate impact):** model treats groups differently in ways that cause harm — even if statistically unbiased overall.
+
+Fix: ...it's complicated. That's the rest of this course.
+
+---
+
+# A Concrete Example
+
+Imagine a wait-time prediction model:
+
+--
+
+- Predicts average wait = 5 min across **all** neighborhoods ✅ (low bias!)
+
+--
+
+- But: **3 min** in wealthy/white neighborhoods, **8 min** in low-income/Black neighborhoods
+
+--
+
+- The model isn't *wrong* — it accurately reflects the *system*
+
+--
+
+- The system itself encodes discrimination, and the model faithfully learns it
+
+--
+
+> **A statistically good model can be a socially harmful model.**
+
+---
+
+# How This Plays Out at Uber/Lyft
+
+1. **Dispatch optimization** minimizes total wait → sends more drivers where demand is dense → underserves sparse/low-income areas
+
+--
+
+2. **Surge pricing** responds to supply-demand imbalance → areas with fewer drivers get higher prices → low-income riders pay more
+
+--
+
+3. **ETA prediction** trained on historical data → if service was worse in certain neighborhoods, the model predicts longer waits → drivers avoid those areas → **self-fulfilling prophecy**
+
+---
+
+# What to Always Ask
+
+When evaluating any model:
+
+--
+
+1. What is the loss **overall**?
+
+--
+
+2. What is the loss **per group**?
+
+--
+
+3. Are error rates **equal** across groups?
+
+--
+
+This is the foundation for fairness metrics in Modules 11–12.
+
+---
+class: inverse, center, middle
+
+# Exercise
+### Let's See It in the Data
+
+---
+
+# Part 1: Synthetic Ride-Sharing Data
+
+```{r data-gen}
+set.seed(42)
+n <- 2000
+
+neighborhoods <- tibble(
+  neighborhood  = c("Downtown", "Midtown", "Eastside", "Southside"),
+  base_wait     = c(3, 4, 7, 9),
+  driver_supply = c(50, 35, 15, 10),
+  pct_minority  = c(0.20, 0.35, 0.70, 0.85),
+  median_income = c(95000, 72000, 38000, 29000)
+)
+
+rides <- tibble(
+  ride_id = 1:n,
+  neighborhood = sample(
+    neighborhoods$neighborhood, n, replace = TRUE,
+    prob = c(0.35, 0.30, 0.20, 0.15)
+  )
+) |>
+  left_join(neighborhoods, by = "neighborhood") |>
+  mutate(
+    hour = sample(0:23, n, replace = TRUE),
+    is_peak = as.integer(hour %in% c(7, 8, 9, 17, 18, 19)),
+    peak_penalty = is_peak * (10 - driver_supply / 10),
+    wait_time = pmax(base_wait + peak_penalty + rnorm(n, 0, 1.5), 0.5)
+  )
+```
+
+---
+
+# Wait Time Distributions
+
+```{r density-plot, echo=FALSE, fig.height=4}
+ggplot(rides, aes(x = wait_time, fill = neighborhood)) +
+  geom_density(alpha = 0.5) +
+  labs(
+    title = "Wait Time Distributions by Neighborhood",
+    x = "Wait Time (minutes)", y = "Density"
+  )
+```
+
+Downtown and Midtown cluster around 3–4 min. Eastside and Southside: 7–9 min.
+
+---
+
+# Summary by Neighborhood
+
+```{r summary}
+rides |>
+  group_by(neighborhood) |>
+  summarise(
+    n_rides = n(), avg_wait = round(mean(wait_time), 1),
+    pct_minority = first(pct_minority),
+    median_income = scales::dollar(first(median_income)),
+    .groups = "drop"
+  ) |>
+  arrange(avg_wait) |>
+  knitr::kable()
+```
+
+---
+
+# Part 2: Train / Val / Test Split
+
+```{r split}
+set.seed(123)
+train_idx <- sample(1:n, 0.6 * n)
+val_idx   <- sample(setdiff(1:n, train_idx), 0.2 * n)
+test_idx  <- setdiff(1:n, c(train_idx, val_idx))
+
+train <- rides[train_idx, ]
+val   <- rides[val_idx, ]
+test  <- rides[test_idx, ]
+```
+
+---
+
+# Part 2: Fit Polynomials
+
+Fit polynomials of degree 1 through 15 on `hour`:
+
+```{r poly-fit}
+degrees <- 1:15
+results <- map_dfr(degrees, function(d) {
+  fit <- lm(wait_time ~ poly(hour, d), data = train)
+  tibble(
+    degree    = d,
+    train_mse = mean((train$wait_time - predict(fit, train))^2),
+    val_mse   = mean((val$wait_time - predict(fit, val))^2)
+  )
+})
+```
+
+---
+
+# The Classic Tradeoff Curve
+
+```{r bv-plot, echo=FALSE, fig.height=4}
+results |>
+  pivot_longer(c(train_mse, val_mse), names_to = "set", values_to = "mse") |>
+  mutate(set = ifelse(set == "train_mse", "Training", "Validation")) |>
+  ggplot(aes(x = degree, y = mse, color = set)) +
+  geom_line(linewidth = 1) + geom_point(size = 2) +
+  labs(
+    title = "Bias-Variance Tradeoff: Polynomial Degree vs. MSE",
+    subtitle = "Training error always decreases; validation error has a sweet spot",
+    x = "Polynomial Degree", y = "Mean Squared Error", color = "Dataset"
+  )
+```
+
+---
+
+# Part 3: Disaggregate by Group
+
+Fit the best model and check errors **per neighborhood**:
+
+```{r disaggregate}
+best_degree <- results$degree[which.min(results$val_mse)]
+best_fit <- lm(wait_time ~ poly(hour, best_degree), data = train)
+
+test |>
+  mutate(predicted = predict(best_fit, test)) |>
+  group_by(neighborhood) |>
+  summarise(
+    n = n(), avg_actual = round(mean(wait_time), 1),
+    avg_predicted = round(mean(predicted), 1),
+    mse = round(mean((wait_time - predicted)^2), 1),
+    pct_minority = first(pct_minority), .groups = "drop"
+  ) |>
+  arrange(pct_minority) |>
+  knitr::kable()
+```
+
+---
+
+# Error Concentrates in Minority Areas
+
+```{r mse-bar, echo=FALSE, fig.height=4}
+test |>
+  mutate(predicted = predict(best_fit, test)) |>
+  group_by(neighborhood) |>
+  summarise(
+    mse = mean((wait_time - predicted)^2),
+    pct_minority = first(pct_minority), .groups = "drop"
+  ) |>
+  ggplot(aes(x = reorder(neighborhood, pct_minority), y = mse, fill = pct_minority)) +
+  geom_col() +
+  scale_fill_gradient(low = "steelblue", high = "firebrick", labels = scales::percent) +
+  labs(
+    title = "Model Error is NOT Equal Across Neighborhoods",
+    subtitle = "Same model, same overall MSE — but error concentrates in minority areas",
+    x = "Neighborhood (ordered by % minority)", y = "MSE", fill = "% Minority"
+  )
+```
+
+---
+
+# Part 4: Add Neighborhood as a Feature
+
+.small[
+```{r better-model}
+better_fit <- lm(wait_time ~ poly(hour, best_degree) + neighborhood, data = train)
+
+test |>
+  mutate(pred_v1 = predict(best_fit, test),
+         pred_v2 = predict(better_fit, test)) |>
+  group_by(neighborhood) |>
+  summarise(
+    avg_actual = round(mean(wait_time), 1),
+    avg_pred_v1 = round(mean(pred_v1), 1),
+    avg_pred_v2 = round(mean(pred_v2), 1),
+    mse_v1 = round(mean((wait_time - pred_v1)^2), 1),
+    mse_v2 = round(mean((wait_time - pred_v2)^2), 1),
+    pct_minority = first(pct_minority), .groups = "drop"
+  ) |>
+  arrange(pct_minority) |>
+  knitr::kable()
+```
+]
+
+Model v2 is **more accurate** — but it has **learned the disparity**.
+
+---
+class: inverse
+
+# The Key Questions
+
+<br>
+
+### 1. Should a model predict what **IS** or what **SHOULD BE**?
+
+--
+
+<br>
+
+### 2. If we use these predictions for driver dispatch, do we perpetuate the very inequality we measured?
+
+--
+
+<br>
+
+### 3. Is a model that ignores neighborhood "fairer" even though it's less accurate?
+
+---
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td>The Learning Problem <i>(just finished)</i></td><td>✓ done</td></tr>
+<tr><td><b>2</b></td><td><b><a href="../module-02/slides.html">Linear Models →</a></b></td><td>next</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Model Evaluation &amp; Selection</a></td><td>upcoming</td></tr>
+<tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
+<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
+</table>

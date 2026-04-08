@@ -1,0 +1,681 @@
+---
+title: "Module 2: Linear Models"
+subtitle: "Driver Acceptance & Proxy Discrimination"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small { font-size: 80%; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+library(glmnet)
+library(broom)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">The Learning Problem</a></td><td>✓ done</td></tr>
+<tr><td><b>2</b></td><td><b>Linear Models</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Model Evaluation &amp; Selection</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
+<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
+</table>
+
+---
+
+# Linear Regression
+
+**Example:** predict the **trip duration** for an Uber ride at request time (before the ride starts).
+
+$$\underbrace{\text{duration}}_{Y} = \beta_0 + \beta_1 \cdot \text{distance} + \beta_2 \cdot \text{hour} + \beta_3 \cdot \text{is\_rush\_hour} + \varepsilon$$
+
+--
+
+Each $\beta_j$ tells you how much duration changes per unit of that feature, holding the others fixed. E.g., $\beta_1 = 2.5$ means **2.5 extra minutes per mile**.
+
+--
+
+Fit by minimizing the **residual sum of squares** (gap between actual and predicted duration):
+
+$$\hat{\beta} = \arg\min_\beta \sum_i \left( y_i - \hat{y}_i \right)^2$$
+
+--
+
+Closed form: $\hat{\beta} = (X^\top X)^{-1} X^\top Y$. No iteration needed.
+
+--
+
+Evaluate with **MSE** (or RMSE / MAE) — *not* accuracy. "Accuracy" only makes sense when there are discrete classes to be right or wrong about; for continuous $Y$ you measure how *far off* you are.
+
+---
+
+# Logistic Regression
+
+For binary `Y ∈ {0, 1}`, model the **log-odds** as linear:
+
+$$\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 X_1 + \cdots + \beta_p X_p$$
+
+--
+
+Equivalently: $p = \sigma(\beta_0 + \sum_j \beta_j X_j)$ where $\sigma$ is the sigmoid.
+
+--
+
+Fit by **maximum likelihood** (no closed form — iterative).
+
+--
+
+Coefficients are **log-odds ratios**: a one-unit change in $X_j$ multiplies the odds of $Y=1$ by $\exp(\beta_j)$.
+
+--
+
+To turn $p$ into a 0/1 prediction, threshold at 0.5 (or wherever you choose). The simplest scalar to evaluate the result is **accuracy**:
+
+$$\text{accuracy} = \frac{\#\text{correct predictions}}{\#\text{total predictions}}$$
+
+The same formula works for any **classification** task — binary or multi-class — since "correct" is a yes/no question. (Module 3 will explain why accuracy alone is rarely enough.)
+
+---
+
+# Quick Refresher: Maximum Likelihood
+
+**Idea:** pick the parameters that make the **observed data most probable**.
+
+--
+
+For each ride request $i$, the model says $P(Y_i = 1) = p_i(\beta)$. The probability of seeing exactly the labels we observed is:
+
+$$L(\beta) = \prod_i p_i^{y_i} (1 - p_i)^{1 - y_i}$$
+
+--
+
+We maximize this — or equivalently, the **log-likelihood** (sums are easier than products):
+
+$$\ell(\beta) = \sum_i \left[ y_i \log p_i + (1 - y_i) \log(1 - p_i) \right]$$
+
+--
+
+This is the **negative cross-entropy loss** from Module 1 — same thing. Minimize the loss = maximize the likelihood.
+
+--
+
+No closed form for $\hat{\beta}$ → use iterative optimization (Newton-Raphson, gradient descent). `glm()` does it for you.
+
+---
+
+# Why Regularize?
+
+**Regularization** = adding a penalty on the size of the coefficients to the loss function, to prevent the model from fitting noise.
+
+--
+
+Plain regression (no penalty) has problems when:
+
+--
+
+- $p$ (number of features) is large relative to $n$ (number of observations) → overfitting
+
+--
+
+- Features are correlated → unstable coefficients (multicollinearity)
+
+--
+
+- You want **automatic feature selection**
+
+--
+
+**Solution:** instead of just minimizing the loss, minimize **loss + penalty on $\beta$**. The penalty discourages large coefficients, shrinking the model toward a simpler one.
+
+---
+
+# Ridge (L2)
+
+Recall the **residual sum of squares**: $\text{RSS} = \sum_i (y_i - \hat{y}_i)^2$
+
+$$\hat{\beta}_{\text{ridge}} = \arg\min_\beta \left[ \text{RSS} + \lambda \sum_j \beta_j^2 \right]$$
+
+--
+
+- Shrinks coefficients toward zero, but **never exactly zero**
+- Handles multicollinearity well
+- All features stay in the model
+
+---
+
+# Ridge: How $\hat{\beta}$ Changes with $\lambda$
+
+Same data, three values of $\lambda$. Watch the coefficients shrink:
+
+```{r ridge-demo, echo=FALSE}
+set.seed(1)
+n_demo <- 100
+x1 <- rnorm(n_demo); x2 <- 0.8*x1 + rnorm(n_demo, 0, 0.5); x3 <- rnorm(n_demo)
+y_demo <- 2*x1 + 1.5*x2 - 0.8*x3 + rnorm(n_demo, 0, 1)
+X <- cbind(x1, x2, x3)
+
+ridge_fit <- function(lambda) {
+  p <- ncol(X)
+  solve(t(X) %*% X + lambda * diag(p)) %*% t(X) %*% y_demo
+}
+
+lambdas <- c(0, 1, 10, 100)
+coefs <- sapply(lambdas, ridge_fit)
+rownames(coefs) <- c("β₁ (x1)", "β₂ (x2, correlated)", "β₃ (x3)")
+colnames(coefs) <- paste0("λ = ", lambdas)
+round(coefs, 3) |> knitr::kable()
+```
+
+--
+
+- $\lambda = 0$: ordinary least squares — large, possibly unstable coefficients
+- $\lambda \to \infty$: all coefficients shrink toward 0 (but never exactly 0)
+- The penalty trades a bit of bias for a lot less variance
+
+---
+
+# Lasso (L1)
+
+$$\hat{\beta}_{\text{lasso}} = \arg\min_\beta \left[ \text{RSS} + \lambda \sum_j |\beta_j| \right]$$
+
+--
+
+- Shrinks **and** sets some coefficients exactly to zero
+- Performs **feature selection** automatically
+- Picks one of a group of correlated features arbitrarily
+
+---
+
+# Lasso: How $\hat{\beta}$ Changes with $\lambda$
+
+Same data as the Ridge slide. Watch coefficients hit **exactly zero**:
+
+```{r lasso-demo, echo=FALSE}
+library(glmnet)
+lambdas_l <- c(0.01, 0.1, 0.3, 1)
+lasso_coefs <- sapply(lambdas_l, function(l) {
+  fit <- glmnet(X, y_demo, alpha = 1, lambda = l, standardize = FALSE, intercept = FALSE)
+  as.numeric(coef(fit))[-1]
+})
+rownames(lasso_coefs) <- c("β₁ (x1)", "β₂ (x2, correlated)", "β₃ (x3)")
+colnames(lasso_coefs) <- paste0("λ = ", lambdas_l)
+round(lasso_coefs, 3) |> knitr::kable()
+```
+
+--
+
+- Compared to Ridge, Lasso pushes some coefficients **all the way to 0**
+- At $\lambda = 1$, only one feature survives — automatic feature selection
+- Note how it picks one of the correlated pair (x1 or x2) somewhat arbitrarily
+
+---
+
+# Elastic Net
+
+Mixes L1 and L2:
+
+$$\hat{\beta}_{\text{enet}} = \arg\min_\beta \left[ \text{RSS} + \lambda \left( \alpha \sum_j |\beta_j| + (1-\alpha) \sum_j \beta_j^2 \right) \right]$$
+
+--
+
+- $\alpha = 1 \Rightarrow$ Lasso, $\alpha = 0 \Rightarrow$ Ridge
+- Best of both: groups correlated features (Ridge) **and** still selects (Lasso)
+
+--
+
+Choose $\lambda$ via cross-validation (`glmnet::cv.glmnet()`).
+
+---
+
+# Elastic Net: Same Data, $\alpha = 0.5$
+
+```{r enet-demo, echo=FALSE}
+enet_coefs <- sapply(lambdas_l, function(l) {
+  fit <- glmnet(X, y_demo, alpha = 0.5, lambda = l, standardize = FALSE, intercept = FALSE)
+  as.numeric(coef(fit))[-1]
+})
+rownames(enet_coefs) <- c("β₁ (x1)", "β₂ (x2, correlated)", "β₃ (x3)")
+colnames(enet_coefs) <- paste0("λ = ", lambdas_l)
+round(enet_coefs, 3) |> knitr::kable()
+```
+
+--
+
+- Behavior sits **between Ridge and Lasso**: some shrinkage, some sparsity
+- The correlated features (x1, x2) tend to **stay together** instead of one being arbitrarily dropped
+- $\alpha$ controls how Lasso-like vs Ridge-like the result is
+
+---
+
+# How Are the $\hat{\beta}$ Computed?
+
+| Method | Algorithm |
+|--------|-----------|
+| **OLS** | Closed form: $\hat{\beta} = (X^\top X)^{-1} X^\top y$ |
+| **Ridge** | Closed form: $\hat{\beta} = (X^\top X + \lambda I)^{-1} X^\top y$ |
+| **Lasso / Elastic Net** | **Iterative optimization** (no closed form — the L1 penalty is not differentiable at 0) |
+
+--
+
+For Lasso, start at $\beta = 0$ and update each step using the **gradient of the loss**:
+
+$$\beta_{\text{new}} = \beta_{\text{old}} - \eta \cdot \underbrace{\frac{1}{n} X^\top (X\beta_{\text{old}} - y)}_{\text{gradient of RSS}}$$
+
+then **shrink** any coefficient smaller than $\eta\lambda$ down to 0 (this is what the L1 penalty does).
+
+--
+
+$\eta$ is a small **step size**. Repeat until coefficients stop changing.
+
+---
+
+# Lasso Iterates: Same Data as Before
+
+```{r lasso-iterates, echo=FALSE}
+# Simple iterative Lasso solver on the same X, y_demo from the Ridge example
+soft <- function(z, t) sign(z) * pmax(abs(z) - t, 0)
+n_demo <- nrow(X)
+lambda_demo <- 0.3
+eta <- 0.05  # step size
+beta <- c(0, 0, 0)
+
+snapshots <- list()
+for (k in 1:200) {
+  grad <- t(X) %*% (X %*% beta - y_demo) / n_demo
+  beta <- soft(beta - eta * grad, eta * lambda_demo)
+  if (k %in% c(1, 5, 20, 200)) snapshots[[paste0("iter ", k)]] <- as.numeric(beta)
+}
+tab <- do.call(cbind, snapshots)
+rownames(tab) <- c("β₁ (x1)", "β₂ (x2, correlated)", "β₃ (x3)")
+round(tab, 3) |> knitr::kable()
+```
+
+--
+
+- **iter 1**: barely moved from zero
+- **iter 5–20**: rapidly approaching the solution
+- **iter 200**: converged — these are the final $\hat{\beta}$
+- Each step is cheap; after enough steps, you get the same answer as `glmnet`
+
+---
+class: inverse, center, middle
+
+# Discrimination Angle
+### Removing Race ≠ Race-Blind
+
+---
+
+# The Proxy Problem
+
+Suppose you build a driver-acceptance model and decide **not** to use race as a feature.
+
+--
+
+Problem solved? **No.**
+
+--
+
+The model will happily learn from **proxy variables** that correlate with race:
+
+--
+
+- **Pickup neighborhood** — strongly correlated with racial demographics
+- **Zip code** — same problem
+- **Phone area code** — geographic, hence demographic
+- **Trip distance + pickup time** — encodes "lives in poor area, works late"
+
+--
+
+A linear model assigns coefficients to these proxies that effectively **recreate racial discrimination**, even though "race" never appears in the data.
+
+---
+
+# Why Regularization Doesn't Save You
+
+**Lasso** selects features. If neighborhood is the strongest predictor, it gets selected.
+
+--
+
+The model is sparse and interpretable — but explicitly bases decisions on a racially-correlated feature.
+
+--
+
+**Ridge** keeps all features but shrinks them. The discrimination gets spread across many proxies, **harder to detect** by inspection.
+
+--
+
+**Regularization is about overfitting — NOT about fairness.**
+
+---
+class: inverse, center, middle
+
+# Exercise
+### Driver Acceptance in 4 Neighborhoods
+
+---
+
+# Part 1: Simulate the Data
+
+```{r data-gen}
+set.seed(2024); n <- 5000
+
+neighborhoods <- tibble(
+  neighborhood   = c("Downtown", "Midtown", "Eastside", "Southside"),
+  base_accept    = c(0.85, 0.78, 0.55, 0.40),
+  pct_minority   = c(0.20, 0.35, 0.70, 0.85)
+)
+
+requests <- tibble(
+  request_id = 1:n,
+  neighborhood = sample(neighborhoods$neighborhood, n, replace = TRUE,
+                        prob = c(0.35, 0.30, 0.20, 0.15))
+) |>
+  left_join(neighborhoods, by = "neighborhood") |>
+  mutate(
+    hour = sample(0:23, n, replace = TRUE),
+    is_night = as.integer(hour >= 22 | hour <= 5),
+    trip_distance_mi = pmax(rlnorm(n, 1.2, 0.6), 0.3),
+    rider_rating = pmin(pmax(rnorm(n, 4.7, 0.4), 1), 5)
+  )
+```
+
+---
+
+# Part 1: Generate Acceptance + Demographics
+
+```{r data-gen-2}
+requests <- requests |>
+  mutate(
+    logit_p = qlogis(base_accept) - 0.6 * is_night -
+              0.15 * abs(trip_distance_mi - 4) +
+              0.5 * (rider_rating - 4.7),
+    accepted = rbinom(n, 1, plogis(logit_p)),
+    # Race is a HIDDEN variable used only for auditing
+    is_minority = rbinom(n, 1, pct_minority)
+  )
+```
+
+--
+
+```{r baseline-rates, echo=FALSE}
+requests |>
+  group_by(is_minority) |>
+  summarise(n = n(), accept_rate = round(mean(accepted), 3),
+            .groups = "drop") |>
+  knitr::kable()
+```
+
+The data already shows disparate acceptance rates across groups.
+
+---
+
+# Part 2: Race-Blind Logistic Regression
+
+```{r fit-logit}
+set.seed(123)
+train_idx <- sample(1:n, 0.7 * n)
+train <- requests[train_idx, ]; test <- requests[-train_idx, ]
+
+# Note: is_minority is NOT in the formula
+fit_logit <- glm(
+  accepted ~ neighborhood + is_night + trip_distance_mi + rider_rating,
+  data = train, family = binomial
+)
+```
+
+---
+
+# Coefficients
+
+```{r coef-table, echo=FALSE}
+tidy(fit_logit) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  knitr::kable()
+```
+
+--
+
+Look at the **neighborhood** coefficients: large negative log-odds for Eastside and Southside. The model has learned "this area = lower acceptance" — a proxy for race.
+
+---
+
+# Part 3: Audit the Race-Blind Model
+
+```{r audit}
+test$pred_prob <- predict(fit_logit, test, type = "response")
+```
+
+```{r audit-table, echo=FALSE}
+test |>
+  group_by(is_minority) |>
+  summarise(
+    n = n(),
+    actual_accept = round(mean(accepted), 3),
+    predicted_accept = round(mean(pred_prob), 3),
+    .groups = "drop"
+  ) |>
+  knitr::kable()
+```
+
+--
+
+Race never entered the model, yet the **predicted acceptance rate for minority riders is much lower**. The neighborhood feature did the discriminating.
+
+---
+
+# Part 4: Try Lasso
+
+```{r lasso}
+x_train <- model.matrix(
+  accepted ~ neighborhood + is_night + trip_distance_mi + rider_rating,
+  data = train)[, -1]
+y_train <- train$accepted
+
+set.seed(456)
+cv_lasso <- cv.glmnet(x_train, y_train, family = "binomial",
+                       alpha = 1, nfolds = 10)
+```
+
+```{r lasso-coef, echo=FALSE}
+as.matrix(coef(cv_lasso, s = "lambda.1se")) |>
+  round(3) |>
+  knitr::kable(col.names = "Coefficient")
+```
+
+---
+
+# Lasso Coefficient Paths
+
+```{r lasso-path, echo=FALSE, fig.height=3.8}
+fit <- cv_lasso$glmnet.fit
+coef_mat <- as.matrix(fit$beta)
+path_df <- as_tibble(t(coef_mat)) |>
+  mutate(log_lambda = log(fit$lambda)) |>
+  pivot_longer(-log_lambda, names_to = "feature", values_to = "coefficient")
+
+ggplot(path_df, aes(x = log_lambda, y = coefficient, color = feature)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = log(cv_lasso$lambda.1se), linetype = "dashed") +
+  geom_hline(yintercept = 0, color = "grey60") +
+  labs(x = expression(log(lambda)), y = "Coefficient", color = "Feature",
+       title = "Lasso coefficient paths") +
+  theme(legend.position = "right")
+```
+
+.small[
+- **Why log(λ)?** `cv.glmnet` sweeps λ over many orders of magnitude (e.g. 0.0001 → 1). On a linear axis nearly everything happens crammed near zero — log spreads it out evenly.
+- **Dashed vertical line:** `lambda.1se` — the largest λ whose CV error is within 1 standard error of the minimum. A slightly sparser model than `lambda.min`, usually preferred.
+]
+
+Even at strong regularization, neighborhood survives — it's the strongest predictor.
+
+---
+
+# Part 5: Compare All Models
+
+```{r all-models, echo=FALSE}
+x_test <- model.matrix(
+  accepted ~ neighborhood + is_night + trip_distance_mi + rider_rating,
+  data = test)[, -1]
+
+set.seed(456)
+cv_ridge <- cv.glmnet(x_train, y_train, family = "binomial", alpha = 0, nfolds = 10)
+cv_enet  <- cv.glmnet(x_train, y_train, family = "binomial", alpha = 0.5, nfolds = 10)
+
+test$pred_lasso <- as.numeric(predict(cv_lasso, x_test, s = "lambda.1se", type = "response"))
+test$pred_ridge <- as.numeric(predict(cv_ridge, x_test, s = "lambda.1se", type = "response"))
+test$pred_enet  <- as.numeric(predict(cv_enet,  x_test, s = "lambda.1se", type = "response"))
+
+audit <- test |>
+  group_by(is_minority) |>
+  summarise(
+    plain_logit = round(mean(pred_prob), 3),
+    lasso       = round(mean(pred_lasso), 3),
+    ridge       = round(mean(pred_ridge), 3),
+    elastic_net = round(mean(pred_enet), 3),
+    .groups = "drop"
+  )
+knitr::kable(audit)
+```
+
+--
+
+All four models predict roughly the same rates per group. **Regularization doesn't fix discrimination** — the proxies are still doing the work.
+
+---
+
+# Part 6: What If We Drop Neighborhood?
+
+```{r no-nbhd}
+fit_no_nbhd <- glm(
+  accepted ~ is_night + trip_distance_mi + rider_rating,
+  data = train, family = binomial
+)
+test$pred_no_nbhd <- predict(fit_no_nbhd, test, type = "response")
+```
+
+```{r no-nbhd-table, echo=FALSE}
+test |>
+  group_by(is_minority) |>
+  summarise(
+    actual_accept = round(mean(accepted), 3),
+    predicted_accept = round(mean(pred_no_nbhd), 3),
+    .groups = "drop"
+  ) |>
+  knitr::kable()
+```
+
+--
+
+The disparate impact shrinks dramatically. But so does accuracy.
+
+---
+
+# Visualizing the Tradeoff
+
+```{r tradeoff-plot, echo=FALSE, fig.height=3.2}
+# Build a per-model summary: accuracy + disparate impact ratio
+models <- list(
+  "plain logit"     = test$pred_prob,
+  "lasso"           = test$pred_lasso,
+  "ridge"           = test$pred_ridge,
+  "elastic net"     = test$pred_enet,
+  "no neighborhood" = test$pred_no_nbhd
+)
+
+tradeoff <- map_dfr(names(models), function(nm) {
+  p <- models[[nm]]
+  accuracy <- mean((p >= 0.5) == test$accepted)
+  rate_min  <- mean(p[test$is_minority == 1])
+  rate_maj  <- mean(p[test$is_minority == 0])
+  tibble(model = nm, accuracy = accuracy, di_ratio = rate_min / rate_maj)
+})
+
+ggplot(tradeoff, aes(x = di_ratio, y = accuracy, label = model)) +
+  geom_point(size = 4, color = "firebrick") +
+  ggrepel::geom_text_repel(size = 4.5, fontface = "bold") +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  labs(
+    title = "The Real Tradeoff: Accuracy vs Disparate Impact",
+    subtitle = "Up = more accurate. Right = more equal acceptance rates across groups.",
+    x = "Disparate Impact Ratio (1.0 = parity)",
+    y = "Accuracy"
+  )
+```
+
+```{r dollar-cost, echo=FALSE, results='asis'}
+acc_full <- tradeoff$accuracy[tradeoff$model == "plain logit"]
+acc_no_n <- tradeoff$accuracy[tradeoff$model == "no neighborhood"]
+gap <- acc_full - acc_no_n
+n_daily <- 25e6  # Uber's ~25M daily requests
+revenue_per_ride <- 5
+wrong_decisions_per_day <- n_daily * gap
+annual_cost <- wrong_decisions_per_day * revenue_per_ride * 365
+cat(sprintf(
+  ".small[**Dollar cost.** Dropping `neighborhood` costs ~%.1f pp of accuracy. At 25M daily requests × $5 platform revenue, that's ~%s wrong decisions/day, or **~$%.1fB/year** in lost revenue. This is why platforms resist 'fairness through unawareness' — the proxies are *worth real money*.]",
+  gap * 100,
+  format(round(wrong_decisions_per_day), big.mark = ","),
+  annual_cost / 1e9
+))
+```
+
+---
+class: inverse
+
+# The Key Questions
+
+<br>
+
+### 1. Is removing the protected attribute enough? (No.)
+
+--
+
+<br>
+
+### 2. Does sparsity make a model fair? (No — it just makes the discrimination visible.)
+
+--
+
+<br>
+
+### 3. What does it mean for a feature to be a "proxy"? Where do you draw the line?
+
+---
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">The Learning Problem</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td>Linear Models <i>(just finished)</i></td><td>✓ done</td></tr>
+<tr><td><b>3</b></td><td><b><a href="../module-03/slides.html">Model Evaluation &amp; Selection →</a></b></td><td>next</td></tr>
+<tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
+<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
+</table>
+
+Say **"start module 3"** when ready.

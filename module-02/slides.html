@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Module 2: Linear Models</title>
+    <meta charset="utf-8" />
+    <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
+    <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Module 2: Linear Models
+]
+.subtitle[
+## Driver Acceptance &amp; Proxy Discrimination
+]
+
+---
+
+
+&lt;style type="text/css"&gt;
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small { font-size: 80%; }
+&lt;/style&gt;
+
+
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;a href="../module-01/slides.html"&gt;The Learning Problem&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;2&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Linear Models&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;11&lt;/td&gt;&lt;td&gt;Fairness Frameworks &amp;amp; Metrics&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;Auditing &amp;amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+---
+
+# Linear Regression
+
+**Example:** predict the **trip duration** for an Uber ride at request time (before the ride starts).
+
+`$$\underbrace{\text{duration}}_{Y} = \beta_0 + \beta_1 \cdot \text{distance} + \beta_2 \cdot \text{hour} + \beta_3 \cdot \text{is\_rush\_hour} + \varepsilon$$`
+
+--
+
+Each `\(\beta_j\)` tells you how much duration changes per unit of that feature, holding the others fixed. E.g., `\(\beta_1 = 2.5\)` means **2.5 extra minutes per mile**.
+
+--
+
+Fit by minimizing the **residual sum of squares** (gap between actual and predicted duration):
+
+`$$\hat{\beta} = \arg\min_\beta \sum_i \left( y_i - \hat{y}_i \right)^2$$`
+
+--
+
+Closed form: `\(\hat{\beta} = (X^\top X)^{-1} X^\top Y\)`. No iteration needed.
+
+--
+
+Evaluate with **MSE** (or RMSE / MAE) — *not* accuracy. "Accuracy" only makes sense when there are discrete classes to be right or wrong about; for continuous `\(Y\)` you measure how *far off* you are.
+
+---
+
+# Logistic Regression
+
+For binary `Y ∈ {0, 1}`, model the **log-odds** as linear:
+
+`$$\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 X_1 + \cdots + \beta_p X_p$$`
+
+--
+
+Equivalently: `\(p = \sigma(\beta_0 + \sum_j \beta_j X_j)\)` where `\(\sigma\)` is the sigmoid.
+
+--
+
+Fit by **maximum likelihood** (no closed form — iterative).
+
+--
+
+Coefficients are **log-odds ratios**: a one-unit change in `\(X_j\)` multiplies the odds of `\(Y=1\)` by `\(\exp(\beta_j)\)`.
+
+--
+
+To turn `\(p\)` into a 0/1 prediction, threshold at 0.5 (or wherever you choose). The simplest scalar to evaluate the result is **accuracy**:
+
+`$$\text{accuracy} = \frac{\#\text{correct predictions}}{\#\text{total predictions}}$$`
+
+The same formula works for any **classification** task — binary or multi-class — since "correct" is a yes/no question. (Module 3 will explain why accuracy alone is rarely enough.)
+
+---
+
+# Quick Refresher: Maximum Likelihood
+
+**Idea:** pick the parameters that make the **observed data most probable**.
+
+--
+
+For each ride request `\(i\)`, the model says `\(P(Y_i = 1) = p_i(\beta)\)`. The probability of seeing exactly the labels we observed is:
+
+`$$L(\beta) = \prod_i p_i^{y_i} (1 - p_i)^{1 - y_i}$$`
+
+--
+
+We maximize this — or equivalently, the **log-likelihood** (sums are easier than products):
+
+`$$\ell(\beta) = \sum_i \left[ y_i \log p_i + (1 - y_i) \log(1 - p_i) \right]$$`
+
+--
+
+This is the **negative cross-entropy loss** from Module 1 — same thing. Minimize the loss = maximize the likelihood.
+
+--
+
+No closed form for `\(\hat{\beta}\)` → use iterative optimization (Newton-Raphson, gradient descent). `glm()` does it for you.
+
+---
+
+# Why Regularize?
+
+**Regularization** = adding a penalty on the size of the coefficients to the loss function, to prevent the model from fitting noise.
+
+--
+
+Plain regression (no penalty) has problems when:
+
+--
+
+- `\(p\)` (number of features) is large relative to `\(n\)` (number of observations) → overfitting
+
+--
+
+- Features are correlated → unstable coefficients (multicollinearity)
+
+--
+
+- You want **automatic feature selection**
+
+--
+
+**Solution:** instead of just minimizing the loss, minimize **loss + penalty on `\(\beta\)`**. The penalty discourages large coefficients, shrinking the model toward a simpler one.
+
+---
+
+# Ridge (L2)
+
+Recall the **residual sum of squares**: `\(\text{RSS} = \sum_i (y_i - \hat{y}_i)^2\)`
+
+`$$\hat{\beta}_{\text{ridge}} = \arg\min_\beta \left[ \text{RSS} + \lambda \sum_j \beta_j^2 \right]$$`
+
+--
+
+- Shrinks coefficients toward zero, but **never exactly zero**
+- Handles multicollinearity well
+- All features stay in the model
+
+---
+
+# Ridge: How `\(\hat{\beta}\)` Changes with `\(\lambda\)`
+
+Same data, three values of `\(\lambda\)`. Watch the coefficients shrink:
+
+
+|                    |  λ = 0|  λ = 1| λ = 10| λ = 100|
+|:-------------------|------:|------:|------:|-------:|
+|β₁ (x1)             |  2.040|  2.008|  1.801|   1.064|
+|β₂ (x2, correlated) |  1.386|  1.396|  1.406|   0.954|
+|β₃ (x3)             | -0.694| -0.687| -0.630|  -0.349|
+
+--
+
+- `\(\lambda = 0\)`: ordinary least squares — large, possibly unstable coefficients
+- `\(\lambda \to \infty\)`: all coefficients shrink toward 0 (but never exactly 0)
+- The penalty trades a bit of bias for a lot less variance
+
+---
+
+# Lasso (L1)
+
+`$$\hat{\beta}_{\text{lasso}} = \arg\min_\beta \left[ \text{RSS} + \lambda \sum_j |\beta_j| \right]$$`
+
+--
+
+- Shrinks **and** sets some coefficients exactly to zero
+- Performs **feature selection** automatically
+- Picks one of a group of correlated features arbitrarily
+
+---
+
+# Lasso: How `\(\hat{\beta}\)` Changes with `\(\lambda\)`
+
+Same data as the Ridge slide. Watch coefficients hit **exactly zero**:
+
+
+|                    | λ = 0.01| λ = 0.1| λ = 0.3| λ = 1|
+|:-------------------|--------:|-------:|-------:|-----:|
+|β₁ (x1)             |    2.036|   1.979|   1.853| 1.442|
+|β₂ (x2, correlated) |    1.377|   1.306|   1.148| 0.568|
+|β₃ (x3)             |   -0.685|  -0.599|  -0.409| 0.000|
+
+--
+
+- Compared to Ridge, Lasso pushes some coefficients **all the way to 0**
+- At `\(\lambda = 1\)`, only one feature survives — automatic feature selection
+- Note how it picks one of the correlated pair (x1 or x2) somewhat arbitrarily
+
+---
+
+# Elastic Net
+
+Mixes L1 and L2:
+
+`$$\hat{\beta}_{\text{enet}} = \arg\min_\beta \left[ \text{RSS} + \lambda \left( \alpha \sum_j |\beta_j| + (1-\alpha) \sum_j \beta_j^2 \right) \right]$$`
+
+--
+
+- `\(\alpha = 1 \Rightarrow\)` Lasso, `\(\alpha = 0 \Rightarrow\)` Ridge
+- Best of both: groups correlated features (Ridge) **and** still selects (Lasso)
+
+--
+
+Choose `\(\lambda\)` via cross-validation (`glmnet::cv.glmnet()`).
+
+---
+
+# Elastic Net: Same Data, `\(\alpha = 0.5\)`
+
+
+|                    | λ = 0.01| λ = 0.1| λ = 0.3|  λ = 1|
+|:-------------------|--------:|-------:|-------:|------:|
+|β₁ (x1)             |    2.033|   1.959|   1.813|  1.406|
+|β₂ (x2, correlated) |    1.383|   1.361|   1.300|  1.046|
+|β₃ (x3)             |   -0.688|  -0.636|  -0.525| -0.185|
+
+--
+
+- Behavior sits **between Ridge and Lasso**: some shrinkage, some sparsity
+- The correlated features (x1, x2) tend to **stay together** instead of one being arbitrarily dropped
+- `\(\alpha\)` controls how Lasso-like vs Ridge-like the result is
+
+---
+
+# How Are the `\(\hat{\beta}\)` Computed?
+
+| Method | Algorithm |
+|--------|-----------|
+| **OLS** | Closed form: `\(\hat{\beta} = (X^\top X)^{-1} X^\top y\)` |
+| **Ridge** | Closed form: `\(\hat{\beta} = (X^\top X + \lambda I)^{-1} X^\top y\)` |
+| **Lasso / Elastic Net** | **Iterative optimization** (no closed form — the L1 penalty is not differentiable at 0) |
+
+--
+
+For Lasso, start at `\(\beta = 0\)` and update each step using the **gradient of the loss**:
+
+`$$\beta_{\text{new}} = \beta_{\text{old}} - \eta \cdot \underbrace{\frac{1}{n} X^\top (X\beta_{\text{old}} - y)}_{\text{gradient of RSS}}$$`
+
+then **shrink** any coefficient smaller than `\(\eta\lambda\)` down to 0 (this is what the L1 penalty does).
+
+--
+
+`\(\eta\)` is a small **step size**. Repeat until coefficients stop changing.
+
+---
+
+# Lasso Iterates: Same Data as Before
+
+
+|                    | iter 1| iter 5| iter 20| iter 200|
+|:-------------------|------:|------:|-------:|--------:|
+|β₁ (x1)             |  0.112|  0.486|   1.228|    1.767|
+|β₂ (x2, correlated) |  0.103|  0.444|   1.097|    1.238|
+|β₃ (x3)             | -0.020| -0.092|  -0.261|   -0.407|
+
+--
+
+- **iter 1**: barely moved from zero
+- **iter 5–20**: rapidly approaching the solution
+- **iter 200**: converged — these are the final `\(\hat{\beta}\)`
+- Each step is cheap; after enough steps, you get the same answer as `glmnet`
+
+---
+class: inverse, center, middle
+
+# Discrimination Angle
+### Removing Race ≠ Race-Blind
+
+---
+
+# The Proxy Problem
+
+Suppose you build a driver-acceptance model and decide **not** to use race as a feature.
+
+--
+
+Problem solved? **No.**
+
+--
+
+The model will happily learn from **proxy variables** that correlate with race:
+
+--
+
+- **Pickup neighborhood** — strongly correlated with racial demographics
+- **Zip code** — same problem
+- **Phone area code** — geographic, hence demographic
+- **Trip distance + pickup time** — encodes "lives in poor area, works late"
+
+--
+
+A linear model assigns coefficients to these proxies that effectively **recreate racial discrimination**, even though "race" never appears in the data.
+
+---
+
+# Why Regularization Doesn't Save You
+
+**Lasso** selects features. If neighborhood is the strongest predictor, it gets selected.
+
+--
+
+The model is sparse and interpretable — but explicitly bases decisions on a racially-correlated feature.
+
+--
+
+**Ridge** keeps all features but shrinks them. The discrimination gets spread across many proxies, **harder to detect** by inspection.
+
+--
+
+**Regularization is about overfitting — NOT about fairness.**
+
+---
+class: inverse, center, middle
+
+# Exercise
+### Driver Acceptance in 4 Neighborhoods
+
+---
+
+# Part 1: Simulate the Data
+
+
+```r
+set.seed(2024); n &lt;- 5000
+
+neighborhoods &lt;- tibble(
+  neighborhood   = c("Downtown", "Midtown", "Eastside", "Southside"),
+  base_accept    = c(0.85, 0.78, 0.55, 0.40),
+  pct_minority   = c(0.20, 0.35, 0.70, 0.85)
+)
+
+requests &lt;- tibble(
+  request_id = 1:n,
+  neighborhood = sample(neighborhoods$neighborhood, n, replace = TRUE,
+                        prob = c(0.35, 0.30, 0.20, 0.15))
+) |&gt;
+  left_join(neighborhoods, by = "neighborhood") |&gt;
+  mutate(
+    hour = sample(0:23, n, replace = TRUE),
+    is_night = as.integer(hour &gt;= 22 | hour &lt;= 5),
+    trip_distance_mi = pmax(rlnorm(n, 1.2, 0.6), 0.3),
+    rider_rating = pmin(pmax(rnorm(n, 4.7, 0.4), 1), 5)
+  )
+```
+
+---
+
+# Part 1: Generate Acceptance + Demographics
+
+
+```r
+requests &lt;- requests |&gt;
+  mutate(
+    logit_p = qlogis(base_accept) - 0.6 * is_night -
+              0.15 * abs(trip_distance_mi - 4) +
+              0.5 * (rider_rating - 4.7),
+    accepted = rbinom(n, 1, plogis(logit_p)),
+    # Race is a HIDDEN variable used only for auditing
+    is_minority = rbinom(n, 1, pct_minority)
+  )
+```
+
+--
+
+
+| is_minority|    n| accept_rate|
+|-----------:|----:|-----------:|
+|           0| 2738|       0.683|
+|           1| 2262|       0.485|
+
+The data already shows disparate acceptance rates across groups.
+
+---
+
+# Part 2: Race-Blind Logistic Regression
+
+
+```r
+set.seed(123)
+train_idx &lt;- sample(1:n, 0.7 * n)
+train &lt;- requests[train_idx, ]; test &lt;- requests[-train_idx, ]
+
+# Note: is_minority is NOT in the formula
+fit_logit &lt;- glm(
+  accepted ~ neighborhood + is_night + trip_distance_mi + rider_rating,
+  data = train, family = binomial
+)
+```
+
+---
+
+# Coefficients
+
+
+|term                  | estimate| std.error| statistic| p.value|
+|:---------------------|--------:|---------:|---------:|-------:|
+|(Intercept)           |   -0.043|     0.533|    -0.081|   0.936|
+|neighborhoodEastside  |   -1.555|     0.104|   -14.925|   0.000|
+|neighborhoodMidtown   |   -0.639|     0.095|    -6.714|   0.000|
+|neighborhoodSouthside |   -2.198|     0.122|   -18.019|   0.000|
+|is_night              |   -0.616|     0.079|    -7.850|   0.000|
+|trip_distance_mi      |   -0.047|     0.014|    -3.451|   0.001|
+|rider_rating          |    0.367|     0.113|     3.238|   0.001|
+
+--
+
+Look at the **neighborhood** coefficients: large negative log-odds for Eastside and Southside. The model has learned "this area = lower acceptance" — a proxy for race.
+
+---
+
+# Part 3: Audit the Race-Blind Model
+
+
+```r
+test$pred_prob &lt;- predict(fit_logit, test, type = "response")
+```
+
+
+| is_minority|   n| actual_accept| predicted_accept|
+|-----------:|---:|-------------:|----------------:|
+|           0| 816|         0.663|            0.678|
+|           1| 684|         0.503|            0.494|
+
+--
+
+Race never entered the model, yet the **predicted acceptance rate for minority riders is much lower**. The neighborhood feature did the discriminating.
+
+---
+
+# Part 4: Try Lasso
+
+
+```r
+x_train &lt;- model.matrix(
+  accepted ~ neighborhood + is_night + trip_distance_mi + rider_rating,
+  data = train)[, -1]
+y_train &lt;- train$accepted
+
+set.seed(456)
+cv_lasso &lt;- cv.glmnet(x_train, y_train, family = "binomial",
+                       alpha = 1, nfolds = 10)
+```
+
+
+|                      | Coefficient|
+|:---------------------|-----------:|
+|(Intercept)           |       0.396|
+|neighborhoodEastside  |      -1.188|
+|neighborhoodMidtown   |      -0.309|
+|neighborhoodSouthside |      -1.788|
+|is_night              |      -0.465|
+|trip_distance_mi      |      -0.024|
+|rider_rating          |       0.187|
+
+---
+
+# Lasso Coefficient Paths
+
+&lt;img src="slides_files/figure-html/lasso-path-1.png" style="display: block; margin: auto;" /&gt;
+
+.small[
+- **Why log(λ)?** `cv.glmnet` sweeps λ over many orders of magnitude (e.g. 0.0001 → 1). On a linear axis nearly everything happens crammed near zero — log spreads it out evenly.
+- **Dashed vertical line:** `lambda.1se` — the largest λ whose CV error is within 1 standard error of the minimum. A slightly sparser model than `lambda.min`, usually preferred.
+]
+
+Even at strong regularization, neighborhood survives — it's the strongest predictor.
+
+---
+
+# Part 5: Compare All Models
+
+
+| is_minority| plain_logit| lasso| ridge| elastic_net|
+|-----------:|-----------:|-----:|-----:|-----------:|
+|           0|       0.678| 0.666| 0.660|       0.657|
+|           1|       0.494| 0.507| 0.516|       0.518|
+
+--
+
+All four models predict roughly the same rates per group. **Regularization doesn't fix discrimination** — the proxies are still doing the work.
+
+---
+
+# Part 6: What If We Drop Neighborhood?
+
+
+```r
+fit_no_nbhd &lt;- glm(
+  accepted ~ is_night + trip_distance_mi + rider_rating,
+  data = train, family = binomial
+)
+test$pred_no_nbhd &lt;- predict(fit_no_nbhd, test, type = "response")
+```
+
+
+| is_minority| actual_accept| predicted_accept|
+|-----------:|-------------:|----------------:|
+|           0|         0.663|            0.598|
+|           1|         0.503|            0.597|
+
+--
+
+The disparate impact shrinks dramatically. But so does accuracy.
+
+---
+
+# Visualizing the Tradeoff
+
+&lt;img src="slides_files/figure-html/tradeoff-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+.small[**Dollar cost.** Dropping `neighborhood` costs ~8.3 pp of accuracy. At 25M daily requests × $5 platform revenue, that's ~2,066,667 wrong decisions/day, or **~$3.8B/year** in lost revenue. This is why platforms resist 'fairness through unawareness' — the proxies are *worth real money*.]
+
+---
+class: inverse
+
+# The Key Questions
+
+&lt;br&gt;
+
+### 1. Is removing the protected attribute enough? (No.)
+
+--
+
+&lt;br&gt;
+
+### 2. Does sparsity make a model fair? (No — it just makes the discrimination visible.)
+
+--
+
+&lt;br&gt;
+
+### 3. What does it mean for a feature to be a "proxy"? Where do you draw the line?
+
+---
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;a href="../module-01/slides.html"&gt;The Learning Problem&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;Linear Models &lt;i&gt;(just finished)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;3&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection →&lt;/a&gt;&lt;/b&gt;&lt;/td&gt;&lt;td&gt;next&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;11&lt;/td&gt;&lt;td&gt;Fairness Frameworks &amp;amp; Metrics&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;Auditing &amp;amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+Say **"start module 3"** when ready.
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

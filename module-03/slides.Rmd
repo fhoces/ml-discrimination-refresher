@@ -1,0 +1,679 @@
+---
+title: "Module 3: Model Evaluation & Selection"
+subtitle: "Auditing Driver Acceptance for Unequal Error Rates"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small { font-size: 80%; }
+.two-col { display: flex; align-items: flex-start; gap: 1em; }
+.col-narrow { flex: 1; }
+.col-wide   { flex: 2; }
+.big-table table {
+  font-size: 150%;
+  width: 65%;
+  margin: 0.8em auto;
+}
+.big-table table th, .big-table table td {
+  padding: 0.5em 1em;
+  text-align: center;
+}
+.cm-corner {
+  position: absolute;
+  top: 90px;
+  right: 40px;
+  border-collapse: collapse;
+  font-size: 90%;
+}
+.cm-corner th, .cm-corner td {
+  border: 1px solid #888;
+  padding: 8px 14px;
+  text-align: center;
+  font-weight: bold;
+}
+.cm-tp { background: #c8e6c9; color: #1b5e20; }
+.cm-fn { background: #ffe0b2; color: #e65100; }
+.cm-fp { background: #ffcdd2; color: #b71c1c; }
+.cm-tn { background: #bbdefb; color: #0d47a1; }
+.tp { color: #1b5e20; font-weight: bold; }
+.fn { color: #e65100; font-weight: bold; }
+.fp { color: #b71c1c; font-weight: bold; }
+.tn { color: #0d47a1; font-weight: bold; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.2, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+library(yardstick)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">The Learning Problem</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Linear Models</a></td><td>✓ done</td></tr>
+<tr><td><b>3</b></td><td><b>Model Evaluation &amp; Selection</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
+<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
+</table>
+
+---
+
+# One Number Is Not Enough
+
+In Module 1 we used **MSE**. In Module 2 we used **accuracy**. Both are scalars — they hide *where* and *for whom* the model is wrong.
+
+--
+
+**Quick example**: if only 1% of events are positive, "always predict negative" gets **99% accuracy** — and tells you nothing.
+
+We saw this hint in Module 2: every model had ~75% accuracy yet predicted very different acceptance rates per group. We need finer metrics to see *why*.
+
+--
+
+For classification, look at the **confusion matrix**:
+
+.big-table[
+|              | Predicted = 1 | Predicted = 0 |
+|--------------|---------------|---------------|
+| **Actual = 1**   | TP            | FN            |
+| **Actual = 0**   | FP            | TN            |
+]
+
+---
+
+# Metrics Derived from the Confusion Matrix
+
+<table class="cm-corner">
+<tr><th></th><th>Pred = 1</th><th>Pred = 0</th></tr>
+<tr><th>Actual = 1</th><td class="cm-tp">TP</td><td class="cm-fn">FN</td></tr>
+<tr><th>Actual = 0</th><td class="cm-fp">FP</td><td class="cm-tn">TN</td></tr>
+</table>
+
+- **Accuracy** = $\dfrac{\color{#1b5e20}{TP} + \color{#0d47a1}{TN}}{\color{#1b5e20}{TP} + \color{#e65100}{FN} + \color{#b71c1c}{FP} + \color{#0d47a1}{TN}}$ — overall fraction correct
+
+--
+
+- **Precision** = $\dfrac{\color{#1b5e20}{TP}}{\color{#1b5e20}{TP} + \color{#b71c1c}{FP}}$ — of what I predicted positive, how many were real?
+
+--
+
+- **True positive rate (recall)** = $\dfrac{\color{#1b5e20}{TP}}{\color{#1b5e20}{TP} + \color{#e65100}{FN}}$ — of the real positives, how many did I predict positive?
+
+--
+
+- **False positive rate** = $\dfrac{\color{#b71c1c}{FP}}{\color{#b71c1c}{FP} + \color{#0d47a1}{TN}}$ — of the real negatives, how many did I predict positive?
+
+--
+
+- **F1** = $2 \cdot \dfrac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$ — harmonic mean (penalizes lopsided models)
+
+--
+
+**Worked example.** Driver-acceptance model on 1000 ride requests (positive = "accepted"): TP = 480, FN = 220, FP = 130, TN = 170.
+
+$$\text{accuracy} = \tfrac{480 + 170}{1000} = 0.65 \quad
+\text{precision} = \tfrac{480}{480 + 130} \approx 0.79 \quad
+\text{recall} = \tfrac{480}{480 + 220} \approx 0.69 \quad
+\text{FPR} = \tfrac{130}{300} \approx 0.43$$
+
+---
+
+# Which Metric When?
+
+*"Classes" = the possible values of $Y$ (e.g., accepted vs not accepted).*
+
+- **Imbalanced classes** → recall + precision
+  - At 4 AM only 5% of requests get accepted. "Always predict reject" → accuracy = 0.95, recall = 0, precision undefined (0/0). Useless.
+- **The probability value itself matters** → log loss
+  - Dispatch sends a driver only if $P(\text{accept}) > 0.6$. If the model says 0.7 but the true rate is 0.4, the rule misfires — even if the model gets the *ordering* of requests right.
+- **Cost-sensitive** → weighted loss
+  - Predicting "accept" when the driver actually rejects → wasted dispatch (~$1). Predicting "reject" when they would have accepted → lost ride (~$5). False negatives cost **5× more**.
+
+---
+
+# ROC Curves and AUC
+
+**ROC** = *Receiver Operating Characteristic* (from WWII radar). **AUC** = *Area Under the Curve*.
+
+A classifier outputs a probability. Pick a **threshold** to turn it into 0/1; sweeping the threshold traces the ROC curve. AUC = area under it.
+
+- **AUC = 0.5** → random; **AUC = 1.0** → perfect ranking
+- Equivalent reading: probability that a random positive scores higher than a random negative
+
+```{r roc-demo, echo=FALSE, fig.height=2.8}
+set.seed(7)
+make_roc <- function(separation) {
+  pos <- rnorm(500, mean = separation, sd = 1)
+  neg <- rnorm(500, mean = 0, sd = 1)
+  scores <- c(pos, neg)
+  truth  <- factor(c(rep(1, 500), rep(0, 500)), levels = c(0, 1))
+  yardstick::roc_curve(tibble(truth = truth, score = scores),
+                       truth, score, event_level = "second") |>
+    mutate(model = sprintf("AUC ≈ %.2f",
+      yardstick::roc_auc_vec(truth, scores, event_level = "second")))
+}
+
+bind_rows(make_roc(0), make_roc(1), make_roc(2.5)) |>
+  ggplot(aes(1 - specificity, sensitivity, color = model)) +
+  geom_line(linewidth = 1.2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  labs(title = "Three classifiers at different AUC values",
+       x = "False Positive Rate", y = "True Positive Rate", color = NULL) +
+  theme(legend.position = "right")
+```
+
+---
+
+# Same Story, with Threshold on the X-Axis
+
+```{r threshold-view, echo=FALSE, fig.height=3.4}
+set.seed(7)
+build_curves <- function(separation, label) {
+  # Raw scores then squashed through sigmoid → probabilities in [0, 1]
+  pos <- plogis(rnorm(500, mean = separation, sd = 1))
+  neg <- plogis(rnorm(500, mean = 0, sd = 1))
+  thr <- seq(0, 1, length.out = 200)
+  tibble(
+    threshold = rep(thr, 2),
+    metric    = rep(c("TPR", "FPR"), each = length(thr)),
+    value     = c(sapply(thr, \(t) mean(pos >= t)),
+                  sapply(thr, \(t) mean(neg >= t))),
+    model     = label
+  )
+}
+
+bind_rows(
+  build_curves(0,   "AUC ≈ 0.53"),
+  build_curves(1,   "AUC ≈ 0.74"),
+  build_curves(2.5, "AUC ≈ 0.96")
+) |>
+  ggplot(aes(threshold, value, color = metric)) +
+  geom_line(linewidth = 1.1) +
+  facet_wrap(~ model) +
+  scale_color_manual(values = c("TPR" = "darkgreen", "FPR" = "firebrick")) +
+  labs(x = "Decision threshold (probability)", y = "Rate", color = NULL,
+       title = "TPR and FPR as the threshold sweeps")
+```
+
+For each classifier, **two curves** of TPR (green) and FPR (red) vs threshold. The ROC curve from the previous slide is built by plotting these two curves *against each other*, eliminating the threshold from the picture.
+
+---
+
+# k-Fold Cross-Validation
+
+CV doesn't estimate model **parameters** ($\beta$ etc. — those are fit inside each fold). It estimates the model's **generalization error** by averaging over many train/validation splits.
+
+--
+
+1. Split training data into $k$ folds
+2. For each fold: train on the other $k-1$, predict on the held-out one
+3. Average the metric across folds
+
+--
+
+Then use the CV error to pick a **hyperparameter** (like Ridge's $\lambda$, polynomial degree, tree depth):
+
+```
+for each candidate λ:
+    for each of the k folds:
+        fit model with this λ on the other k-1 folds
+        record error on held-out fold
+    average the k errors
+pick the λ with the lowest average CV error
+```
+
+- $k = 5$ or $k = 10$ are standard
+- Module 1 used a *single* validation split for polynomial degree; CV is the more robust version
+
+---
+
+# A Perfect AUC Can Still Be Useless
+
+Consider a model that outputs these scores on 5 ride requests (actual label in parens):
+
+| score | label    |
+|-------|----------|
+| 0.21  | accepted |
+| 0.20  | accepted |
+| 0.19  | rejected |
+| 0.18  | accepted |
+| 0.17  | rejected |
+
+--
+
+Every accepted request scored higher than every rejected one → **AUC = 1.0** (perfect ranking).
+
+--
+
+But the predicted probabilities sit around **0.2**, even though the actual acceptance rate is 60%. If your dispatch rule is "send a driver when $P(\text{accept}) > 0.5$", **you'd dispatch zero drivers** — despite the model perfectly knowing which requests would be accepted.
+
+--
+
+AUC only cares about **order**. It doesn't care that the *numbers are wrong*. We need a different concept for that → **calibration**.
+
+---
+
+# Calibration
+
+A classifier is **well-calibrated** if, **for every** $x \in [0, 1]$, among ride requests where the model predicted $P(\text{accept}) \approx x$, the fraction actually accepted is also $\approx x$.
+
+$$P(Y = 1 \mid \hat{p}(X) = x) = x \quad \text{for all } x$$
+
+--
+
+**Worked example at $x = 0.8$.** Take all ride requests where the model predicted $\hat{p} \in [0.75, 0.85]$ — say there are 200 such requests. Count the actual acceptances:
+
+- ≈ 160 accepted → ratio ≈ 0.80 → **well-calibrated** ✓
+- only ≈ 100 accepted → ratio ≈ 0.50 → **overconfident** (model says 0.8, reality is 0.5)
+- ≈ 190 accepted → ratio ≈ 0.95 → **underconfident**
+
+For the model to be calibrated *overall*, the same property must hold at every $x$ — that's what the reliability diagram below checks.
+
+--
+
+- Check it with a **reliability diagram**: bin predicted probabilities, plot bin mean vs observed rate. Diagonal = perfect.
+- Fix it with **Platt scaling** (logistic regression on the scores) or **isotonic regression** after the fact.
+
+---
+
+# Reliability Diagrams: Three Examples
+
+<div class="two-col">
+<div class="col-narrow">
+<ul>
+<li><b style="color:darkgreen">Green</b> lies on the diagonal → predicted = observed at every <i>x</i> → <b>calibrated</b></li>
+<li><b style="color:firebrick">Red</b> is <i>below</i> the diagonal → predicts higher than reality → <b>overconfident</b></li>
+<li><b style="color:steelblue">Blue</b> is <i>above</i> the diagonal → predicts lower than reality → <b>underconfident</b></li>
+</ul>
+</div>
+<div class="col-wide">
+
+```{r reliability-diagrams, echo=FALSE, fig.height=4.2, fig.width=6}
+set.seed(11)
+n_sim <- 5000
+
+# Three classifiers with the same AUC but different calibration
+true_p <- runif(n_sim, 0, 1)
+y <- rbinom(n_sim, 1, true_p)
+
+models <- tibble(
+  true_p = true_p,
+  y = y,
+  `Well-calibrated`   = true_p,                          # identity
+  Overconfident       = plogis(2 * qlogis(true_p)),      # pushes toward 0/1
+  Underconfident      = plogis(0.5 * qlogis(true_p))     # pulls toward 0.5
+) |>
+  pivot_longer(`Well-calibrated`:Underconfident,
+               names_to = "model", values_to = "p_hat")
+
+bins <- models |>
+  mutate(bin = cut(p_hat, breaks = seq(0, 1, by = 0.1),
+                   include.lowest = TRUE)) |>
+  group_by(model, bin) |>
+  summarise(predicted = mean(p_hat),
+            observed  = mean(y),
+            n = n(), .groups = "drop")
+
+ggplot(bins, aes(predicted, observed, color = model)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = c("Well-calibrated" = "darkgreen",
+                                "Overconfident"   = "firebrick",
+                                "Underconfident"  = "steelblue")) +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Predicted P(accept)", y = "Actual acceptance rate", color = NULL,
+       title = NULL)
+```
+
+</div>
+</div>
+
+---
+
+# Fixing Calibration After the Fact
+
+Both methods are **post-fit recipes**: don't retrain the original model — train a tiny second model that maps `old score → calibrated probability`, using a held-out calibration set.
+
+--
+
+**Platt scaling** — assume the distortion is a smooth sigmoid:
+
+1. Take held-out scores $s$ and labels $y$
+2. Fit a 1-D logistic regression $y \sim s$ → get $a, b$
+3. Replace each score with $\hat p_{\text{new}} = \sigma(a \cdot s + b)$
+
+--
+
+**Isotonic regression** — let the data choose the shape, only require it to be monotonic:
+
+1. Same held-out $(s, y)$
+2. Fit a monotonic step function $g(s)$ to $y$
+3. Replace each score with $\hat p_{\text{new}} = g(s)$
+
+--
+
+| | Platt | Isotonic |
+|---|---|---|
+| Shape | Sigmoid (parametric) | Any monotonic (non-parametric) |
+| Data needed | A few hundred points | A few thousand points |
+| Risk | Underfit if distortion isn't sigmoid | Overfit when data is small |
+
+R: `probably::cal_estimate_logistic()` / `probably::cal_estimate_isotonic()`
+
+---
+class: inverse, center, middle
+
+# Discrimination Angle
+### Equal AUC ≠ Equal Treatment
+
+---
+
+# Unequal Error Rates
+
+A classifier can have **great overall accuracy** and still be terrible for a specific group. Two distinct ways:
+
+--
+
+1. **Different precision** — the same flag means different things: a "suspicious" label has 90% precision for one group and 50% for another
+
+--
+
+2. **Different recall** (or FPR) — the model catches positives for one group but misses them for another, or flags innocent people more in one group
+
+--
+
+3. **Different calibration** — a "score of 0.8" actually means 60% risk for group A and 90% for group B
+
+---
+
+# The COMPAS Story (2016)
+
+ProPublica audited COMPAS, a recidivism risk-scoring tool used in U.S. courts.
+
+--
+
+- Overall AUC was **similar** for Black and white defendants
+- Among defendants who did **not** re-offend, Black defendants were classified high-risk **twice as often** (higher FPR)
+- Among defendants who **did** re-offend, white defendants were classified low-risk more often (lower TPR for whites)
+
+--
+
+The COMPAS makers responded: the model was **calibrated equally** across groups (a score of 7 meant the same recidivism rate for both).
+
+--
+
+**Both sides were right.** This is the *impossibility result* we'll see in Module 11: you can't satisfy all fairness criteria simultaneously.
+
+---
+
+# What "Auditing" Actually Means
+
+A real audit of an ML system is just: **compute every metric you care about, broken down by demographic group.**
+
+--
+
+You don't need new statistics — you need the discipline to slice the existing ones.
+
+--
+
+**Example.** A driver-acceptance model with overall accuracy 0.74 and AUC 0.81. The audit reveals:
+
+| Group         | Accuracy | Precision | Recall | FPR  |
+|---------------|----------|-----------|--------|------|
+| Non-minority  | 0.78     | 0.86      | 0.85   | 0.34 |
+| Minority      | 0.69     | 0.61      | 0.62   | 0.21 |
+
+Overall AUC looks fine, but the model **predicts "accept" for minority requests much less often** — recall drops from 0.85 to 0.62, and precision from 0.86 to 0.61. Same model, very different per-group experience.
+
+--
+
+In R: `group_by(group) |> yardstick::metrics(truth, prediction)`. Done.
+
+---
+class: inverse, center, middle
+
+# Exercise
+### Auditing the Driver-Acceptance Model
+
+---
+
+# Part 1: Reuse the Module 2 Setup
+
+```{r data-gen}
+set.seed(2024); n <- 5000
+neighborhoods <- tibble(
+  neighborhood   = c("Downtown","Midtown","Eastside","Southside"),
+  base_accept    = c(0.85, 0.78, 0.55, 0.40),
+  pct_minority   = c(0.20, 0.35, 0.70, 0.85)
+)
+requests <- tibble(
+  request_id = 1:n,
+  neighborhood = sample(neighborhoods$neighborhood, n, TRUE,
+                        prob = c(0.35, 0.30, 0.20, 0.15))
+) |>
+  left_join(neighborhoods, by = "neighborhood") |>
+  mutate(
+    hour = sample(0:23, n, replace = TRUE),
+    is_night = as.integer(hour >= 22 | hour <= 5),
+    trip_distance_mi = pmax(rlnorm(n, 1.2, 0.6), 0.3),
+    rider_rating = pmin(pmax(rnorm(n, 4.7, 0.4), 1), 5)
+  )
+```
+
+---
+
+# Part 1: Generate Acceptance + Demographics
+
+```{r data-gen-2}
+requests <- requests |>
+  mutate(
+    logit_p = qlogis(base_accept) - 0.6 * is_night -
+              0.15 * abs(trip_distance_mi - 4) +
+              0.5 * (rider_rating - 4.7),
+    accepted = rbinom(n, 1, plogis(logit_p)),
+    is_minority = rbinom(n, 1, pct_minority)
+  )
+```
+
+```{r baseline, echo=FALSE}
+requests |>
+  group_by(is_minority) |>
+  summarise(n = n(),
+            accept_rate = round(mean(accepted), 3),
+            .groups = "drop") |>
+  knitr::kable()
+```
+
+---
+
+# Part 2: Fit the Race-Blind Classifier
+
+```{r fit}
+set.seed(123)
+train_idx <- sample(1:n, 0.7 * n)
+train <- requests[train_idx, ]; test <- requests[-train_idx, ]
+
+# is_minority is NOT in the formula (same as Module 2)
+fit <- glm(
+  accepted ~ neighborhood + is_night + trip_distance_mi + rider_rating,
+  data = train, family = binomial
+)
+
+test$pred_prob  <- predict(fit, test, type = "response")
+test$pred_class <- factor(as.integer(test$pred_prob >= 0.5), levels = c(0, 1))
+test$truth      <- factor(test$accepted, levels = c(0, 1))
+```
+
+---
+
+# Part 3: Overall Metrics
+
+.small[
+```{r overall, echo=FALSE}
+bind_rows(
+  accuracy(test, truth, pred_class),
+  precision(test, truth, pred_class, event_level = "second"),
+  recall(test, truth, pred_class, event_level = "second"),
+  f_meas(test, truth, pred_class, event_level = "second"),
+  roc_auc(test, truth, pred_prob, event_level = "second")
+) |>
+  mutate(.estimate = round(.estimate, 3)) |>
+  knitr::kable()
+```
+]
+
+--
+
+Looks fine. Now disaggregate.
+
+---
+
+# Part 4: Per-Group Metrics
+
+.small[
+```{r per-group, echo=FALSE}
+test |>
+  group_by(is_minority) |>
+  summarise(
+    n         = n(),
+    accuracy  = round(accuracy_vec(truth, pred_class), 3),
+    precision = round(precision_vec(truth, pred_class, event_level = "second"), 3),
+    recall    = round(recall_vec(truth, pred_class, event_level = "second"), 3),
+    fpr       = {
+      tn <- sum(truth == 0 & pred_class == 0)
+      fp <- sum(truth == 0 & pred_class == 1)
+      round(fp / (fp + tn), 3)
+    },
+    auc       = round(roc_auc_vec(truth, pred_prob, event_level = "second"), 3),
+    .groups   = "drop"
+  ) |>
+  knitr::kable()
+```
+]
+
+--
+
+AUC is similar across groups, but the **false positive rate** and **flag rate** are very different.
+
+---
+
+# Per-Group ROC Curves
+
+```{r roc-plot, echo=FALSE, fig.height=4}
+test |>
+  group_by(is_minority) |>
+  roc_curve(truth, pred_prob, event_level = "second") |>
+  mutate(group = ifelse(is_minority == 1, "Minority", "Non-minority")) |>
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = group)) +
+  geom_line(linewidth = 1.2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  scale_color_manual(values = c("Non-minority" = "steelblue",
+                                "Minority" = "firebrick")) +
+  labs(title = "Per-Group ROC Curves",
+       x = "False Positive Rate", y = "True Positive Rate", color = "Group")
+```
+
+---
+
+# Per-Group Calibration
+
+```{r calib-plot, echo=FALSE, fig.height=4}
+test |>
+  mutate(bin = cut(pred_prob, breaks = seq(0, 1, by = 0.1),
+                   include.lowest = TRUE)) |>
+  group_by(is_minority, bin) |>
+  summarise(avg_predicted = mean(pred_prob),
+            actual_rate = mean(accepted), n = n(), .groups = "drop") |>
+  mutate(group = ifelse(is_minority == 1, "Minority", "Non-minority")) |>
+  ggplot(aes(x = avg_predicted, y = actual_rate, color = group)) +
+  geom_line(linewidth = 1) + geom_point(aes(size = n)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+  scale_color_manual(values = c("Non-minority" = "steelblue",
+                                "Minority" = "firebrick")) +
+  labs(title = "Per-Group Calibration",
+       x = "Predicted Acceptance Probability", y = "Actual Acceptance Rate",
+       color = "Group", size = "n")
+```
+
+---
+
+# Disparate Impact at Every Threshold
+
+```{r threshold-sweep, echo=FALSE, fig.height=3.8}
+thresholds <- seq(0.05, 0.95, by = 0.05)
+threshold_audit <- map_dfr(thresholds, function(t) {
+  test |>
+    mutate(flag = as.integer(pred_prob >= t)) |>
+    group_by(is_minority) |>
+    summarise(flag_rate = mean(flag), .groups = "drop") |>
+    pivot_wider(names_from = is_minority, values_from = flag_rate,
+                names_prefix = "g") |>
+    mutate(threshold = t, di_ratio = g1 / g0)
+})
+
+ggplot(threshold_audit, aes(x = threshold, y = di_ratio)) +
+  geom_line(linewidth = 1.2, color = "firebrick") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey") +
+  labs(title = "Disparate Impact Ratio Across Thresholds",
+       subtitle = "Picking a threshold is itself a fairness decision",
+       x = "Decision Threshold", y = "DI Ratio (1.0 = parity)")
+```
+
+---
+class: inverse
+
+# The Key Questions
+
+<br>
+
+### 1. If two models have the same AUC, are they equally fair?
+
+--
+
+<br>
+
+### 2. Should we pick the threshold that maximizes accuracy, or the one that minimizes the FPR gap?
+
+--
+
+<br>
+
+### 3. What does "calibration" buy us if it can coexist with unequal FPRs?
+
+---
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">The Learning Problem</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Linear Models</a></td><td>✓ done</td></tr>
+<tr><td>3</td><td>Model Evaluation &amp; Selection <i>(just finished)</i></td><td>✓ done</td></tr>
+<tr><td><b>4</b></td><td><b>Tree-Based Methods</b></td><td>next</td></tr>
+<tr><td>6</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
+<tr><td>7</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
+<tr><td>11</td><td>Fairness Frameworks &amp; Metrics</td><td>upcoming</td></tr>
+<tr><td>12</td><td>Auditing &amp; Interpretability</td><td>upcoming</td></tr>
+</table>
+
+Say **"start module 4"** when ready.

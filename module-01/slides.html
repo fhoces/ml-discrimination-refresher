@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Module 1: The Learning Problem</title>
+    <meta charset="utf-8" />
+    <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
+    <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Module 1: The Learning Problem
+]
+.subtitle[
+## Disparate Wait Times in Ride-Sharing
+]
+
+---
+
+
+&lt;style type="text/css"&gt;
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+&lt;/style&gt;
+
+
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;1&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;The Learning Problem&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Linear Models&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;11&lt;/td&gt;&lt;td&gt;Fairness Frameworks &amp;amp; Metrics&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;Auditing &amp;amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+---
+
+# The Setup
+
+We observe data `\((X, Y)\)` and want to learn a function `\(f\)` such that
+
+`$$Y = f(X) + \varepsilon, \quad \mathbb{E}[\varepsilon] = 0, \quad \text{Var}(\varepsilon) = \sigma^2$$`
+
+--
+
+- Choose `\(\hat{f}\)` from some model class by minimizing a **loss function** on training data
+
+--
+
+- Evaluate on **held-out** data (validation / test)
+
+--
+
+- `\(\varepsilon\)` is irreducible — no model can eliminate it
+
+---
+
+# Loss Functions
+
+| Task | Loss | Formula |
+|------|------|---------|
+| Regression | MSE | `\(\frac{1}{n} \sum_i (y_i - \hat{y}_i)^2\)` |
+| Classification | 0-1 loss | `\(\frac{1}{n} \sum_i \mathbb{I}(y_i \neq \hat{y}_i)\)` |
+| Classification | Cross-entropy | `\(-\sum_i y_i \log(\hat{p}_i)\)` |
+
+--
+
+- MSE penalizes large errors more heavily
+
+--
+
+- Cross-entropy rewards **well-calibrated probabilities** — preferred for probabilistic classifiers
+
+---
+
+# Train / Validation / Test
+
+| Set | Purpose | When used |
+|-----|---------|-----------|
+| **Training** | Fit the model parameters | During training |
+| **Validation** | Choose hyperparameters, compare models | During model selection |
+| **Test** | Final unbiased performance estimate | Once, at the end |
+
+--
+
+Cross-validation approximates the validation step by rotating through folds.
+
+---
+
+# Example: Validation Picks the Hyperparameter
+
+Train three models on the **same** training set, evaluate on **validation**:
+
+
+```r
+set.seed(99)
+demo &lt;- tibble(x = runif(200, 0, 10),
+               y = sin(x) + rnorm(200, 0, 0.3))
+demo_train &lt;- demo[1:140, ]
+demo_val   &lt;- demo[141:200, ]
+
+# Model A: degree-5 polynomial (less flexible)
+fit_A &lt;- lm(y ~ poly(x, 5), data = demo_train)
+
+# Model B: degree-8 polynomial (moderate flexibility)
+fit_B &lt;- lm(y ~ poly(x, 8), data = demo_train)
+
+# Model C: degree-20 polynomial (very flexible)
+fit_C &lt;- lm(y ~ poly(x, 20), data = demo_train)
+```
+
+---
+
+# Validation Results
+
+
+|Model         | # Params| Train MSE| Val MSE|
+|:-------------|--------:|---------:|-------:|
+|A (degree 5)  |        6|    0.1243|  0.1764|
+|B (degree 8)  |        9|    0.0946|  0.1243|
+|C (degree 20) |       21|    0.0882|  0.1414|
+
+--
+
+- Model C wins on **training** data (lowest Train MSE) — it memorizes best
+
+--
+
+- Model B wins on **validation** data (lowest Val MSE) — it generalizes best
+
+--
+
+- Too simple (A) → underfits. Too complex (C) → overfits. **Validation finds the sweet spot (B).**
+
+---
+
+# Example: What Validation Reveals
+
+&lt;img src="slides_files/figure-html/validation-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+class: inverse, center, middle
+
+# Bias-Variance Tradeoff
+
+---
+
+# The Decomposition
+
+For any estimate `\(\hat{f}\)`, the expected prediction error at a point `\(x_0\)` is:
+
+`$$\mathbb{E}\left[(Y - \hat{f}(x_0))^2\right] = \underbrace{\left[\text{Bias}(\hat{f}(x_0))\right]^2}_{\text{systematic error}} + \underbrace{\text{Var}(\hat{f}(x_0))}_{\text{sensitivity to training set}} + \underbrace{\sigma^2}_{\text{irreducible}}$$`
+
+--
+
+where:
+
+- `\(\text{Bias}(\hat{f}(x_0)) = f(x_0) - \mathbb{E}[\hat{f}(x_0)]\)`
+
+- `\(\text{Var}(\hat{f}(x_0)) = \mathbb{E}\left[(\hat{f}(x_0) - \mathbb{E}[\hat{f}(x_0)])^2\right]\)`
+
+---
+
+# Proof — Step 1: Separate Noise from Estimation
+
+Start by substituting `\(Y = f(x_0) + \varepsilon\)`:
+
+`$$\mathbb{E}[(Y - \hat{f})^2] = \mathbb{E}[((f - \hat{f}) + \varepsilon)^2]$$`
+
+--
+
+Expand the square:
+
+`$$= \mathbb{E}[(f - \hat{f})^2] + 2\,\mathbb{E}[(f - \hat{f})\,\varepsilon] + \mathbb{E}[\varepsilon^2]$$`
+
+--
+
+The cross term vanishes: `\(\varepsilon\)` is independent of `\(\hat{f}\)` and `\(\mathbb{E}[\varepsilon] = 0\)`
+
+`$$= \mathbb{E}[(f(x_0) - \hat{f}(x_0))^2] + \sigma^2$$`
+
+---
+
+# Proof — Step 2: Add and Subtract the Mean
+
+The trick: insert `\(\mathbb{E}[\hat{f}]\)` into the estimation error:
+
+`$$f - \hat{f} = \underbrace{(f - \mathbb{E}[\hat{f}])}_{\text{Bias}} + \underbrace{(\mathbb{E}[\hat{f}] - \hat{f})}_{\text{deviation from mean}}$$`
+
+--
+
+Square and take expectation:
+
+`$$\mathbb{E}[(f - \hat{f})^2] = \text{Bias}^2 + 2 \cdot \text{Bias} \cdot \underbrace{\mathbb{E}[\mathbb{E}[\hat{f}] - \hat{f}]}_{= 0} + \underbrace{\mathbb{E}[(\hat{f} - \mathbb{E}[\hat{f}])^2]}_{\text{Var}(\hat{f})}$$`
+
+--
+
+The cross term vanishes because `\(\mathbb{E}[\hat{f} - \mathbb{E}[\hat{f}]] = 0\)`.
+
+---
+
+# Proof — Result
+
+`$$\boxed{\mathbb{E}\left[(Y - \hat{f}(x_0))^2\right] = \left[\text{Bias}(\hat{f}(x_0))\right]^2 + \text{Var}(\hat{f}(x_0)) + \sigma^2}$$`
+
+--
+
+| Component | Simple model (e.g., linear) | Complex model (e.g., degree-20 poly) |
+|-----------|---------------------------|--------------------------------------|
+| Bias² | High | Low |
+| Variance | Low | High |
+
+--
+
+The **sweet spot** minimizes their sum → this is model selection.
+
+---
+
+# Back to Our Models — Where Are We Zooming In?
+
+&lt;img src="slides_files/figure-html/zoom-context-plain-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+count: false
+
+# Back to Our Models — Where Are We Zooming In?
+
+&lt;img src="slides_files/figure-html/zoom-context-box-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Seeing It: 100 Simulated Training Sets
+
+&lt;img src="slides_files/figure-html/validation-zoom-1.png" style="display: block; margin: auto;" /&gt;
+
+--
+
+**Variance** = spread of the orange dots around their mean. **Bias** = gap between the mean (X) and the true f(x).
+
+---
+
+# Model B (degree 8): Less Bias, More Variance
+
+&lt;img src="slides_files/figure-html/validation-zoom-B-1.png" style="display: block; margin: auto;" /&gt;
+
+--
+
+Bias is smaller, but variance is larger — the **tradeoff** in action.
+
+---
+
+# Model C (degree 20): Less Bias, More Variance
+
+&lt;img src="slides_files/figure-html/validation-zoom-C-1.png" style="display: block; margin: auto;" /&gt;
+
+--
+
+Most flexible model: bias vanishes but variance explodes — **overfitting**.
+
+---
+
+# Connecting the Pieces: MSE = Bias² + Variance + σ²
+
+
+|Model         |  Bias²| Variance|   σ²| Bias²+Var+σ²| Avg MSE (500 sims)| Val MSE (1 sample)| Train MSE|
+|:-------------|------:|--------:|----:|------------:|------------------:|------------------:|---------:|
+|A (degree 5)  | 0.0234|   0.0035| 0.09|       0.1169|             0.1169|             0.1911|    0.1243|
+|B (degree 8)  | 0.0000|   0.0040| 0.09|       0.0940|             0.0940|             0.1282|    0.0946|
+|C (degree 20) | 0.0000|   0.0110| 0.09|       0.1010|             0.1010|             0.1360|    0.0882|
+
+--
+
+- **Bias² + Var + σ²** matches **Avg MSE** (averaged over 500 simulations) — the decomposition works!
+
+--
+
+- **Val MSE (1 sample)** is what we observe in practice — a single draw, so it won't match exactly
+
+--
+
+- In practice, you **cannot** compute Bias² or Variance from one training set. The decomposition is a conceptual tool that explains *why* Val MSE has a U-shape
+
+--
+
+- σ² = 0.09 is the **floor** — no model can beat it (irreducible noise)
+
+---
+class: inverse, center, middle
+
+# Discrimination Angle
+### Statistical Bias ≠ Social Bias
+
+---
+
+# Two Kinds of Bias
+
+**Statistical bias:** model's average prediction is off — it systematically over- or under-estimates.
+
+`$$\text{Bias} = f(x_0) - \mathbb{E}[\hat{f}(x_0)]$$`
+
+Fix: use a more flexible model.
+
+--
+
+**Social bias (disparate impact):** model treats groups differently in ways that cause harm — even if statistically unbiased overall.
+
+Fix: ...it's complicated. That's the rest of this course.
+
+---
+
+# A Concrete Example
+
+Imagine a wait-time prediction model:
+
+--
+
+- Predicts average wait = 5 min across **all** neighborhoods ✅ (low bias!)
+
+--
+
+- But: **3 min** in wealthy/white neighborhoods, **8 min** in low-income/Black neighborhoods
+
+--
+
+- The model isn't *wrong* — it accurately reflects the *system*
+
+--
+
+- The system itself encodes discrimination, and the model faithfully learns it
+
+--
+
+&gt; **A statistically good model can be a socially harmful model.**
+
+---
+
+# How This Plays Out at Uber/Lyft
+
+1. **Dispatch optimization** minimizes total wait → sends more drivers where demand is dense → underserves sparse/low-income areas
+
+--
+
+2. **Surge pricing** responds to supply-demand imbalance → areas with fewer drivers get higher prices → low-income riders pay more
+
+--
+
+3. **ETA prediction** trained on historical data → if service was worse in certain neighborhoods, the model predicts longer waits → drivers avoid those areas → **self-fulfilling prophecy**
+
+---
+
+# What to Always Ask
+
+When evaluating any model:
+
+--
+
+1. What is the loss **overall**?
+
+--
+
+2. What is the loss **per group**?
+
+--
+
+3. Are error rates **equal** across groups?
+
+--
+
+This is the foundation for fairness metrics in Modules 11–12.
+
+---
+class: inverse, center, middle
+
+# Exercise
+### Let's See It in the Data
+
+---
+
+# Part 1: Synthetic Ride-Sharing Data
+
+
+```r
+set.seed(42)
+n &lt;- 2000
+
+neighborhoods &lt;- tibble(
+  neighborhood  = c("Downtown", "Midtown", "Eastside", "Southside"),
+  base_wait     = c(3, 4, 7, 9),
+  driver_supply = c(50, 35, 15, 10),
+  pct_minority  = c(0.20, 0.35, 0.70, 0.85),
+  median_income = c(95000, 72000, 38000, 29000)
+)
+
+rides &lt;- tibble(
+  ride_id = 1:n,
+  neighborhood = sample(
+    neighborhoods$neighborhood, n, replace = TRUE,
+    prob = c(0.35, 0.30, 0.20, 0.15)
+  )
+) |&gt;
+  left_join(neighborhoods, by = "neighborhood") |&gt;
+  mutate(
+    hour = sample(0:23, n, replace = TRUE),
+    is_peak = as.integer(hour %in% c(7, 8, 9, 17, 18, 19)),
+    peak_penalty = is_peak * (10 - driver_supply / 10),
+    wait_time = pmax(base_wait + peak_penalty + rnorm(n, 0, 1.5), 0.5)
+  )
+```
+
+---
+
+# Wait Time Distributions
+
+&lt;img src="slides_files/figure-html/density-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+Downtown and Midtown cluster around 3–4 min. Eastside and Southside: 7–9 min.
+
+---
+
+# Summary by Neighborhood
+
+
+```r
+rides |&gt;
+  group_by(neighborhood) |&gt;
+  summarise(
+    n_rides = n(), avg_wait = round(mean(wait_time), 1),
+    pct_minority = first(pct_minority),
+    median_income = scales::dollar(first(median_income)),
+    .groups = "drop"
+  ) |&gt;
+  arrange(avg_wait) |&gt;
+  knitr::kable()
+```
+
+
+
+|neighborhood | n_rides| avg_wait| pct_minority|median_income |
+|:------------|-------:|--------:|------------:|:-------------|
+|Downtown     |     723|      4.3|         0.20|$95,000       |
+|Midtown      |     578|      5.6|         0.35|$72,000       |
+|Eastside     |     403|      8.9|         0.70|$38,000       |
+|Southside    |     296|     11.3|         0.85|$29,000       |
+
+---
+
+# Part 2: Train / Val / Test Split
+
+
+```r
+set.seed(123)
+train_idx &lt;- sample(1:n, 0.6 * n)
+val_idx   &lt;- sample(setdiff(1:n, train_idx), 0.2 * n)
+test_idx  &lt;- setdiff(1:n, c(train_idx, val_idx))
+
+train &lt;- rides[train_idx, ]
+val   &lt;- rides[val_idx, ]
+test  &lt;- rides[test_idx, ]
+```
+
+---
+
+# Part 2: Fit Polynomials
+
+Fit polynomials of degree 1 through 15 on `hour`:
+
+
+```r
+degrees &lt;- 1:15
+results &lt;- map_dfr(degrees, function(d) {
+  fit &lt;- lm(wait_time ~ poly(hour, d), data = train)
+  tibble(
+    degree    = d,
+    train_mse = mean((train$wait_time - predict(fit, train))^2),
+    val_mse   = mean((val$wait_time - predict(fit, val))^2)
+  )
+})
+```
+
+---
+
+# The Classic Tradeoff Curve
+
+&lt;img src="slides_files/figure-html/bv-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Part 3: Disaggregate by Group
+
+Fit the best model and check errors **per neighborhood**:
+
+
+```r
+best_degree &lt;- results$degree[which.min(results$val_mse)]
+best_fit &lt;- lm(wait_time ~ poly(hour, best_degree), data = train)
+
+test |&gt;
+  mutate(predicted = predict(best_fit, test)) |&gt;
+  group_by(neighborhood) |&gt;
+  summarise(
+    n = n(), avg_actual = round(mean(wait_time), 1),
+    avg_predicted = round(mean(predicted), 1),
+    mse = round(mean((wait_time - predicted)^2), 1),
+    pct_minority = first(pct_minority), .groups = "drop"
+  ) |&gt;
+  arrange(pct_minority) |&gt;
+  knitr::kable()
+```
+
+
+
+|neighborhood |   n| avg_actual| avg_predicted|  mse| pct_minority|
+|:------------|---:|----------:|-------------:|----:|------------:|
+|Downtown     | 131|        4.2|           6.6|  9.7|         0.20|
+|Midtown      | 115|        5.6|           6.7|  4.3|         0.35|
+|Eastside     |  81|        9.9|           7.1| 12.7|         0.70|
+|Southside    |  73|       11.6|           6.8| 26.8|         0.85|
+
+---
+
+# Error Concentrates in Minority Areas
+
+&lt;img src="slides_files/figure-html/mse-bar-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Part 4: Add Neighborhood as a Feature
+
+.small[
+
+```r
+better_fit &lt;- lm(wait_time ~ poly(hour, best_degree) + neighborhood, data = train)
+
+test |&gt;
+  mutate(pred_v1 = predict(best_fit, test),
+         pred_v2 = predict(better_fit, test)) |&gt;
+  group_by(neighborhood) |&gt;
+  summarise(
+    avg_actual = round(mean(wait_time), 1),
+    avg_pred_v1 = round(mean(pred_v1), 1),
+    avg_pred_v2 = round(mean(pred_v2), 1),
+    mse_v1 = round(mean((wait_time - pred_v1)^2), 1),
+    mse_v2 = round(mean((wait_time - pred_v2)^2), 1),
+    pct_minority = first(pct_minority), .groups = "drop"
+  ) |&gt;
+  arrange(pct_minority) |&gt;
+  knitr::kable()
+```
+
+
+
+|neighborhood | avg_actual| avg_pred_v1| avg_pred_v2| mse_v1| mse_v2| pct_minority|
+|:------------|----------:|-----------:|-----------:|------:|------:|------------:|
+|Downtown     |        4.2|         6.6|         4.2|    9.7|    4.0|         0.20|
+|Midtown      |        5.6|         6.7|         5.7|    4.3|    2.9|         0.35|
+|Eastside     |        9.9|         7.1|         9.4|   12.7|    4.6|         0.70|
+|Southside    |       11.6|         6.8|        11.7|   26.8|    3.5|         0.85|
+]
+
+Model v2 is **more accurate** — but it has **learned the disparity**.
+
+---
+class: inverse
+
+# The Key Questions
+
+&lt;br&gt;
+
+### 1. Should a model predict what **IS** or what **SHOULD BE**?
+
+--
+
+&lt;br&gt;
+
+### 2. If we use these predictions for driver dispatch, do we perpetuate the very inequality we measured?
+
+--
+
+&lt;br&gt;
+
+### 3. Is a model that ignores neighborhood "fairer" even though it's less accurate?
+
+---
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;The Learning Problem &lt;i&gt;(just finished)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;2&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;&lt;a href="../module-02/slides.html"&gt;Linear Models →&lt;/a&gt;&lt;/b&gt;&lt;/td&gt;&lt;td&gt;next&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp;amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;Tree-Based Methods&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;11&lt;/td&gt;&lt;td&gt;Fairness Frameworks &amp;amp; Metrics&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;Auditing &amp;amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
