@@ -22,7 +22,7 @@ output:
 .metrics-ref {
   position: absolute;
   bottom: 12px;
-  right: 80px;
+  right: 105px;
   background: #fff8dc;
   border: 1px solid #d4b400;
   border-radius: 4px;
