@@ -157,6 +157,10 @@ $$P(\hat Y = 1 \mid Y = 0, A = 0) = P(\hat Y = 1 \mid Y = 0, A = 1) \quad \text{
 
 **Makes sense when:** there's a real outcome you care about and missing it has direct human cost (medical, fraud, dispatch).
 
+--
+
+**Failure mode:** assumes the labels $Y$ are an unbiased measure of the truth. If $Y$ itself is a biased proxy (e.g., past *arrests* used as a stand-in for past *crimes*), enforcing equal TPR/FPR just reproduces the labelling bias — and the only fix is post-processing with group-specific thresholds, which uses the protected attribute at decision time.
+
 ---
 
 # 3. Predictive Parity
