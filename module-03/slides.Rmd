@@ -432,28 +432,29 @@ A real audit is just: **compute every metric you care about, broken down by demo
 
 --
 
-In R, the entire audit is one pipe. The test set has columns `is_minority`, `truth` (actual), and `pred_class` (model output):
+In R, the entire audit is one pipe. The test set has columns `is_minority`, `truth` (actual), `pred_class` (0/1 prediction), and `pred_prob` (predicted probability):
 
 ```r
 test |>
   group_by(is_minority) |>
-  yardstick::metrics(truth = truth, estimate = pred_class)
+  summarise(
+    accuracy  = accuracy_vec(truth, pred_class),
+    precision = precision_vec(truth, pred_class, event_level = "second"),
+    recall    = recall_vec(truth, pred_class, event_level = "second"),
+    auc       = roc_auc_vec(truth, pred_prob, event_level = "second")
+  )
 ```
 
 --
 
-| is_minority | .metric  | .estimator | .estimate |
-|-------------|----------|------------|-----------|
-| 0           | accuracy | binary     | 0.78      |
-| 0           | kap      | binary     | 0.55      |
-| 1           | accuracy | binary     | 0.69      |
-| 1           | kap      | binary     | 0.31      |
-
-`group_by` slices the data; `yardstick` runs the metrics once per slice. Add `precision`, `recall`, `roc_auc`, etc. the same way.
+| is_minority | accuracy | precision | recall | auc  |
+|-------------|----------|-----------|--------|------|
+| 0           | 0.78     | 0.86      | 0.85   | 0.83 |
+| 1           | 0.69     | 0.61      | 0.62   | 0.81 |
 
 --
 
-Same model, very different per-group experience: accuracy drops 9 points and Cohen's kappa is nearly halved for the minority group.
+Same model, very different per-group experience: **AUC is essentially equal**, but accuracy drops 9 points, precision falls from 0.86 → 0.61, and recall from 0.85 → 0.62.
 
 ---
 class: inverse, center, middle
