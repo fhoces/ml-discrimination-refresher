@@ -503,6 +503,38 @@ ggplot(frontier, aes(dp_gap, accuracy)) +
 Every fairness intervention sits **somewhere on this curve**. Math draws the curve; humans pick the point.
 
 ---
+
+# The Frontier in Dollars
+
+```{r frontier-dollars, echo=FALSE, fig.height=3.6}
+n_daily   <- 25e6   # Uber's ~25M daily ride requests
+rev_ride  <- 5      # platform revenue per accepted ride, USD
+acc_baseline <- max(frontier$accuracy)
+
+frontier_dollars <- frontier |>
+  mutate(
+    accuracy_drop = acc_baseline - accuracy,
+    annual_cost   = accuracy_drop * n_daily * rev_ride * 365 / 1e9
+  )
+
+ggplot(frontier_dollars, aes(dp_gap, annual_cost)) +
+  geom_line(linewidth = 1, color = "firebrick") +
+  geom_point(size = 1.4, color = "firebrick") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey60") +
+  scale_y_continuous(labels = function(x) paste0("$", round(x, 1), "B")) +
+  labs(title = "Cost of fairness, in dollars/year",
+       subtitle = "Same frontier — y-axis is annual revenue lost vs the most accurate operating point",
+       x = "Demographic parity gap (|minority - majority pos_rate|)",
+       y = "Annual cost (USD/yr)")
+```
+
+.small[
+**Assumptions** (deliberately rough): Uber processes ~25M daily ride requests; the platform earns ~$5 of revenue per accepted ride; each percentage point of lost accuracy maps 1:1 to lost matches. So 1 pp accuracy ≈ 25M × $5 × 365 ≈ **$45.6B/year** at the limit.
+
+Closing the entire DP gap costs roughly **$`r round(max(frontier_dollars$annual_cost), 1)`B/year** in this back-of-envelope calculation. Real platforms negotiate this number against legal exposure, brand risk, and the political cost of sustained disparities.
+]
+
+---
 class: inverse
 
 # The Key Questions
