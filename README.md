@@ -1,4 +1,4 @@
-# ML Refresher: Discrimination in Ride-Sharing
+# ML Refresher: Discrimination and Fairness
 
 A short, hands-on refresher on machine learning fundamentals through the lens
 of algorithmic discrimination in ride-sharing platforms (Uber, Lyft). Each
