@@ -68,7 +68,7 @@ theme_set(theme_minimal(base_size = 14))
 <tr><td>1</td><td><a href="../module-01/slides.html">The Learning Problem</a></td><td>✓ done</td></tr>
 <tr><td>2</td><td><a href="../module-02/slides.html">Linear Models</a></td><td>✓ done</td></tr>
 <tr><td><b>3</b></td><td><b>Model Evaluation &amp; Selection</b> <i>(you are here)</i></td><td>← current</td></tr>
-<tr><td>4</td><td>Tree-Based Methods</td><td>upcoming</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Tree-Based Methods</a></td><td>✓ done</td></tr>
 <tr><td>5</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
 <tr><td>6</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
 <tr><td>7</td><td><a href="../module-07/slides.html">Fairness Frameworks &amp; Metrics</a></td><td>✓ done</td></tr>
@@ -684,7 +684,7 @@ class: inverse
 <tr><td>1</td><td><a href="../module-01/slides.html">The Learning Problem</a></td><td>✓ done</td></tr>
 <tr><td>2</td><td><a href="../module-02/slides.html">Linear Models</a></td><td>✓ done</td></tr>
 <tr><td>3</td><td>Model Evaluation &amp; Selection <i>(just finished)</i></td><td>✓ done</td></tr>
-<tr><td><b>4</b></td><td><b>Tree-Based Methods</b></td><td>next</td></tr>
+<tr><td><b>4</b></td><td><a href="../module-04/slides.html"><b>Tree-Based Methods</b></a></td><td>next</td></tr>
 <tr><td>5</td><td>Unsupervised Learning</td><td>upcoming</td></tr>
 <tr><td>6</td><td>Neural Networks Foundations</td><td>upcoming</td></tr>
 <tr><td>7</td><td><a href="../module-07/slides.html">Fairness Frameworks &amp; Metrics</a></td><td>✓ done</td></tr>
