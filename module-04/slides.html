@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Module 4: Tree-Based Methods</title>
+    <meta charset="utf-8" />
+    <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
+    <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Module 4: Tree-Based Methods
+]
+.subtitle[
+## Surge Pricing, Neighborhood Effects, and Algorithmic Redlining
+]
+
+---
+
+
+&lt;style type="text/css"&gt;
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small { font-size: 80%; }
+.tiny { font-size: 65%; }
+.two-col { display: flex; align-items: flex-start; gap: 1em; }
+.col-narrow { flex: 1; }
+.col-wide   { flex: 2; }
+.highlight-box {
+  background: #fff3e0;
+  border-left: 4px solid #e65100;
+  padding: 0.5em 1em;
+  margin: 0.5em 0;
+}
+&lt;/style&gt;
+
+
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;a href="../module-01/slides.html"&gt;The Learning Problem&lt;/a&gt;&lt;/td&gt;&lt;td&gt;done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Linear Models&lt;/a&gt;&lt;/td&gt;&lt;td&gt;done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Model Evaluation &amp; Selection&lt;/a&gt;&lt;/td&gt;&lt;td&gt;done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;4&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Tree-Based Methods&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;Unsupervised Learning&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;Neural Networks Foundations&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;&lt;a href="../module-07/slides.html"&gt;Fairness Frameworks &amp; Metrics&lt;/a&gt;&lt;/td&gt;&lt;td&gt;done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;8&lt;/td&gt;&lt;td&gt;Auditing &amp; Interpretability&lt;/td&gt;&lt;td&gt;upcoming&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+---
+
+# The Setup: Surge Pricing
+
+Ride-sharing platforms use **surge multipliers** to balance supply and demand. When demand is high in an area, prices go up.
+
+--
+
+The model takes features like:
+- Time of day, day of week
+- Pickup neighborhood / zip code
+- Recent demand in the area
+- Number of available drivers nearby
+
+--
+
+.highlight-box[
+**The fairness question:** if the model learns that certain neighborhoods consistently have high demand and low supply, it charges more there. Those neighborhoods often correlate with race and income. Is the algorithm **redlining**?
+]
+
+---
+
+# Simulated Surge Data (1/2)
+
+.small[
+
+```r
+n &lt;- 2000
+surge &lt;- tibble(
+  hour         = sample(0:23, n, replace = TRUE),
+  day_of_week  = sample(1:7, n, replace = TRUE),
+  neighborhood = sample(c("Downtown", "Midtown", "Uptown",
+                           "Southside", "Westend"), n, replace = TRUE),
+  demand_ratio = rnorm(n, mean = case_when(
+    neighborhood == "Downtown"  ~ 1.8,
+    neighborhood == "Midtown"   ~ 1.4,
+    neighborhood == "Southside" ~ 1.6,
+    neighborhood == "Westend"   ~ 0.9,
+    TRUE ~ 1.1), sd = 0.3),
+  drivers_nearby = rpois(n, lambda = case_when(
+    neighborhood == "Downtown"  ~ 12,
+    neighborhood == "Southside" ~ 4,
+    neighborhood == "Westend"   ~ 5,
+    TRUE ~ 8)),
+  is_weekend = day_of_week %in% c(6, 7),
+  is_rush    = hour %in% c(7:9, 17:19)
+)
+```
+]
+
+---
+count: false
+
+# Simulated Surge Data (2/2)
+
+.small[
+
+```r
+surge &lt;- surge |&gt;
+  mutate(
+    surge_mult = 1 + 0.4 * demand_ratio - 0.05 * drivers_nearby +
+      0.3 * is_rush + 0.15 * is_weekend + rnorm(n, sd = 0.15),
+    surge_mult = pmax(surge_mult, 1.0)  # floor at 1x
+  )
+glimpse(surge)
+```
+
+```
+## Rows: 2,000
+## Columns: 8
+## $ hour           &lt;int&gt; 16, 4, 0, 9, 3, 17, 16, 14, 23, 6, 3, 4, 13, 19, 17, 14…
+## $ day_of_week    &lt;int&gt; 3, 3, 4, 4, 5, 5, 5, 4, 6, 6, 6, 7, 2, 6, 4, 1, 6, 5, 3…
+## $ neighborhood   &lt;chr&gt; "Southside", "Westend", "Downtown", "Midtown", "Uptown"…
+## $ demand_ratio   &lt;dbl&gt; 1.8926136, 0.5477677, 1.7313107, 1.5421331, 1.4351858, …
+## $ drivers_nearby &lt;int&gt; 2, 5, 8, 7, 15, 9, 12, 9, 5, 4, 7, 2, 15, 4, 11, 13, 8,…
+## $ is_weekend     &lt;lgl&gt; FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,…
+## $ is_rush        &lt;lgl&gt; FALSE, FALSE, FALSE, TRUE, FALSE, TRUE, FALSE, FALSE, F…
+## $ surge_mult     &lt;dbl&gt; 1.685165, 1.000000, 1.273864, 1.715376, 1.000000, 1.000…
+```
+]
+
+---
+
+# Part 1: Decision Trees
+
+---
+
+# A Single Decision Tree
+
+*A decision tree asks a sequence of yes/no questions to split the data.*
+
+.pull-left[
+.small[
+
+```r
+tree_fit &lt;- rpart(
+  surge_mult ~ hour + demand_ratio +
+    drivers_nearby + neighborhood +
+    is_weekend + is_rush,
+  data = surge,
+  control = rpart.control(maxdepth = 2))
+```
+
+- At the root, the tree tried all 6 features — `neighborhood != Southside` gave the lowest RSS
+- Within each child, it tried all 6 again (features **can** be reused). `is_rush` won at depth 2
+]
+]
+
+.pull-right[
+&lt;img src="slides_files/figure-html/single-tree-plot-1.png" style="display: block; margin: auto;" /&gt;
+]
+
+---
+
+# How Does a Split Get Chosen?
+
+For regression trees, at each node the algorithm tries every feature and every threshold, and picks the one that minimizes the **residual sum of squares** (RSS) in the two child nodes.
+
+--
+
+For a candidate split into left ( `\(L\)` ) and right ( `\(R\)` ):
+
+`$$\small \text{RSS} = \sum_{i \in L} (y_i - \bar{y}_L)^2 + \sum_{i \in R} (y_i - \bar{y}_R)^2$$`
+
+--
+
+**Example:** 6 rides with surge: **1.1** (Downtown), **1.2** (Midtown), **1.4** (Uptown), **1.5** (Westend), **2.0** (Southside), **2.1** (Southside)
+
+| | `!= Southside` | `!= Southside, Westend` |
+|---|---|---|
+| **Left** | 1.1, 1.2, 1.4, 1.5 | 1.1, 1.2, 1.4 |
+| **Right** | 2.0, 2.1 | 1.5, 2.0, 2.1 |
+| `\(\bar{y}_L\)` , `\(\bar{y}_R\)` | 1.30,  2.05 | 1.23,  1.87 |
+| **RSS** | 0.07 + 0.005 = **0.075** | 0.035 + 0.282 = 0.317 |
+
+The algorithm picks `!= Southside` — more homogeneous groups, lower RSS. Note: the tree is **greedy** — it picks the locally best split without looking ahead.
+
+---
+
+# For Classification: Gini Impurity
+
+Our surge example predicts a number (regression → RSS). But when predicting a **class** (e.g., "high surge" vs "low surge"), the split criterion is **Gini impurity**. `\(p_k\)` = fraction of class `\(k\)` in the node:
+
+`$$G = 1 - \sum_k p_k^2$$`
+
+--
+
+Gini measures how **mixed** a node is (lower = purer = better):
+
+| Node: 10 rides | Composition | Gini |
+|---|---|---|
+| All high surge | 10 high, 0 low → `\(p_{\text{high}}=1\)` | `\(1 - 1^2 = 0\)` (pure) |
+| Even mix | 5 high, 5 low → `\(p_{\text{high}}=0.5\)` | `\(1 - 0.5^2 - 0.5^2 = 0.5\)` (worst) |
+| Mostly one class | 9 high, 1 low → `\(p_{\text{high}}=0.9\)` | `\(1 - 0.9^2 - 0.1^2 = 0.18\)` |
+
+--
+
+The tree picks the split that produces the largest **decrease in weighted Gini** — same logic as RSS, but for categories instead of numbers.
+
+---
+count: false
+
+# For Classification: Gini — Worked Example
+
+10 rides labeled "high" or "low" surge. Two candidate splits on `neighborhood`:
+
+| Ride | Neighborhood | Class |
+|---|---|---|
+| 1–3 | Downtown | high |
+| 4–5 | Midtown | low |
+| 6–7 | Southside | high |
+| 8–10 | Southside | low |
+
+--
+
+.small[
+| | `!= Southside` (L: 5, R: 5) | `!= Downtown` (L: 7, R: 3) |
+|---|---|---|
+| **Left** | 3 high, 2 low → `\(G = 1 - 0.6^2 - 0.4^2 = 0.48\)` | 2 high, 5 low → `\(G = 1 - 0.29^2 - 0.71^2 = 0.41\)` |
+| **Right** | 2 high, 3 low → `\(G = 1 - 0.4^2 - 0.6^2 = 0.48\)` | 3 high, 0 low → `\(G = 0\)` (pure!) |
+| **Weighted** | `\(\frac{5}{10}(0.48) + \frac{5}{10}(0.48) = 0.48\)` | `\(\frac{7}{10}(0.41) + \frac{3}{10}(0) = \textbf{0.29}\)` |
+
+The tree picks `!= Downtown` — it isolates a pure node (all high surge).
+]
+
+---
+
+# Overfitting: The Core Problem
+
+An unconstrained tree grows until every leaf is pure (or has one observation). It **memorizes** the training data.
+
+
+```r
+deep_tree &lt;- rpart(surge_mult ~ hour + demand_ratio + drivers_nearby +
+                     neighborhood + is_weekend + is_rush,
+                   data = surge, control = rpart.control(cp = 0, minsplit = 2))
+cat("Leaves in unconstrained tree:", sum(deep_tree$frame$var == "&lt;leaf&gt;"))
+```
+
+```
+## Leaves in unconstrained tree: 1771
+```
+
+--
+
+**Controls for complexity:**
+- `maxdepth` — how deep the tree can grow
+- `min_n` (= `minsplit`) — minimum observations to attempt a split
+- `cp` (complexity parameter) — prune splits that don't improve fit by at least this much
+
+---
+
+# The Bias-Variance View
+
+.pull-left[
+**Shallow tree (depth = 2)**
+- High bias: misses real patterns
+- Low variance: stable across samples
+
+&lt;img src="slides_files/figure-html/shallow-1.png" style="display: block; margin: auto;" /&gt;
+]
+
+.pull-right[
+**Deep tree (depth = 8)**
+- Low bias: captures everything
+- High variance: different data `\(\to\)` very different tree
+
+&lt;img src="slides_files/figure-html/deep-1.png" style="display: block; margin: auto;" /&gt;
+]
+
+---
+
+# Part 2: Random Forests
+
+---
+
+# From One Tree to Many
+
+A single tree is **unstable** — remove a few data points and you get a completely different tree. Random forests fix this by averaging many trees. Two key ideas: **bagging** and **feature randomization**.
+
+--
+
+.pull-left[
+**Bagging** (Bootstrap AGGregating)
+- Draw B bootstrap samples (with replacement, same size as original)
+- Fit one tree to each
+- Average the predictions
+]
+
+.pull-right[
+.small[
+**Example:** predict surge for a Southside rush-hour ride
+
+| | Bootstrap sample | Best split | Pred. |
+|---|---|---|---|
+| Tree 1 | emphasizes Downtown | `demand &gt; 1.5` | 1.50 |
+| Tree 2 | more Southside rides | `nbhd != South.` | 1.72 |
+| Tree 3 | more rush-hour rides | `is_rush = 1` | 1.61 |
+| **Bagged** | | | **1.61** |
+
+Pred. = predicted surge for one specific ride (the leaf mean it falls into). Each tree sees different data → different split → different prediction. Averaging smooths out the noise.
+]
+]
+
+---
+
+# Feature Randomization
+
+Bootstrap diversifies the **data** each tree sees. Feature randomization diversifies the **splits** — at *every* node, a fresh random subset of `mtry` features is drawn.
+
+```
+Tree 1 (bootstrap sample #1):
+  Root:  random 3 of 6 → {demand, hour, is_weekend}    → split: demand &lt; 1.5
+  Left:  random 3 of 6 → {neighborhood, drivers, rush} → split: is_rush = 1
+  Right: random 3 of 6 → {demand, neighborhood, rush}  → split: nbhd != Southside
+
+Tree 2 (bootstrap sample #2):
+  Root:  random 3 of 6 → {drivers, neighborhood, rush} → split: nbhd != Southside
+  Left:  random 3 of 6 → {demand, hour, drivers}       → split: drivers &gt; 6
+  Right: random 3 of 6 → {hour, is_weekend, rush}      → split: is_rush = 1
+
+Tree 3 (bootstrap sample #3):
+  Root:  random 3 of 6 → {demand, neighborhood, hour}  → split: demand &lt; 1.3
+  Left:  random 3 of 6 → {drivers, rush, is_weekend}   → split: is_weekend = 1
+  Right: random 3 of 6 → {demand, drivers, rush}       → split: drivers &gt; 8
+```
+
+--
+
+Without feature randomization, every tree would split on `demand_ratio` first (the strongest predictor) and all trees would look nearly identical. Forcing a random subset at each node creates **decorrelated** trees.
+
+---
+
+name: decorrelation
+
+# Why Decorrelation Matters
+
+&lt;a href="#variance-proof" style="position:absolute; bottom:12px; left:40px; font-size:11px; background:#e8eaf6; padding:2px 8px; border-radius:3px; z-index:100;"&gt;Proof&lt;/a&gt;
+
+.pull-left[
+**Without feature randomization** (bagging only):
+
+Every tree splits on `demand_ratio` first. The trees are highly correlated.
+
+Averaging `\(B\)` correlated predictions:
+
+`$$\text{Var}(\bar{X}) = \rho \sigma^2 + \frac{1-\rho}{B}\sigma^2$$`
+
+High `\(\rho\)` `\(\to\)` averaging barely helps.
+]
+
+--
+
+.pull-right[
+**With feature randomization** (`mtry` &lt; `\(p\)`):
+
+Some trees are forced to split on `drivers_nearby` or `hour` first. The trees are less correlated.
+
+Low `\(\rho\)` `\(\to\)` averaging **dramatically** reduces variance.
+
+This is the key insight of Breiman (2001).
+]
+
+---
+
+# Random Forest in R
+
+.pull-left[
+.small[
+
+```r
+rf_spec &lt;- rand_forest(
+  mtry = 2,
+  min_n = 5,              # min obs per leaf
+  trees = 500) |&gt;
+  set_engine("ranger",
+    importance = "impurity") |&gt;
+  set_mode("regression")
+
+rf_wf &lt;- workflow() |&gt;
+  add_recipe(recipe(
+    surge_mult ~ hour + demand_ratio +
+      drivers_nearby + neighborhood +
+      is_weekend + is_rush,
+    data = surge)) |&gt;
+  add_model(rf_spec)
+
+rf_fit &lt;- fit(rf_wf, data = surge)
+```
+
+Unlike a single tree, RF wants **deep trees** — high variance per tree is fine because averaging cancels it out.
+]
+]
+
+.pull-right[
+.small[
+
+```r
+extract_fit_parsnip(rf_fit)$fit
+```
+
+```
+## Ranger result
+## 
+## Call:
+##  ranger::ranger(x = maybe_data_frame(x), y = y, mtry = min_cols(~2,      x), num.trees = ~500, min.node.size = min_rows(~5, x), importance = ~"impurity",      num.threads = 1, verbose = FALSE, seed = sample.int(10^5,          1)) 
+## 
+## Type:                             Regression 
+## Number of trees:                  500 
+## Sample size:                      2000 
+## Number of independent variables:  6 
+## Mtry:                             2 
+## Target node size:                 5 
+## Variable importance mode:         impurity 
+## Splitrule:                        variance 
+## OOB prediction error (MSE):       0.02027697 
+## R squared (OOB):                  0.7237605
+```
+]
+]
+
+---
+
+# RF Hyperparameters
+
+| Parameter | What it controls | Typical default | Effect of increasing |
+|-----------|-----------------|----------------|---------------------|
+| `num.trees` (B) | Number of trees | 500 | More stable; no overfitting risk |
+| `mtry` | Features per split | `\(\sqrt{p}\)` (classif.) or `\(p/3\)` (regr.) | Stronger trees but more correlated |
+| `min.node.size` | Minimum n per leaf | 1 (classif.) or 5 (regr.) | Simpler trees, less overfitting |
+
+--
+
+.highlight-box[
+Random forests **don't overfit** as you add more trees — more trees just means more stable averaging. 500 is almost always enough. The main thing to tune is `mtry`.
+]
+
+*Why no overfitting? Each individual tree does overfit (deep, memorizes its bootstrap sample). But each tree overfits to **different noise** (different bootstrap sample + different feature subsets). When you average them, the noise cancels out — only the real signal survives. Adding tree 501 is just one more independent vote; it can't make the average worse.*
+
+---
+
+# Variable Importance (RF)
+
+&lt;img src="slides_files/figure-html/rf-importance-1.png" style="display: block; margin: auto;" /&gt;
+
+.small[
+**How to read this:** the R² tells you the model explains a lot (or a little) of the total variance. The bars show how that predictive work is distributed across features. `drivers_nearby` and `demand_ratio` do most of the heavy lifting.
+
+**Caution:** this plot only shows **relative** importance (which features matter more than others). Two models can have identical importance rankings but very different R² — one explains 90% of variance, the other 5%. Always check R² first to know if the total prediction is meaningful.
+]
+
+---
+
+# Part 3: Gradient Boosting
+
+---
+
+name: boosting
+
+# Boosting: Sequential Correction
+
+&lt;a href="#gradient-proof" style="position:absolute; bottom:12px; left:40px; font-size:11px; background:#e8eaf6; padding:2px 8px; border-radius:3px; z-index:100;"&gt;Gradient proof&lt;/a&gt;
+
+Random forests build trees **independently**. Boosting builds them **sequentially** — each tree fixes the errors of the ensemble so far.
+
+--
+
+**Algorithm:**
+1. Start with a constant prediction: `\(\hat{f}_0 = \bar{y}\)`
+2. For `\(m = 1, \ldots, M\)`:
+   - Compute residuals: `\(r_i = y_i - \hat{f}_{m-1}(x_i)\)`
+   - Fit a shallow tree `\(h_m\)` to the residuals (typically depth 1–6; depth 1 = a single split, called a "stump")
+   - Update: `\(\hat{f}_m = \hat{f}_{m-1} + \eta \cdot h_m\)`
+
+--
+
+`\(\eta\)` is the **learning rate** — how much each new tree contributes. Smaller `\(\eta\)` = more conservative, needs more trees, but generalizes better.
+
+--
+
+**Why "gradient"?** The residual `\(r_i = y_i - \hat{f}(x_i)\)` is the negative gradient of squared-error loss: `\(-\partial L / \partial \hat{f} = y_i - \hat{f}\)`. So "fit to residuals" = "fit to the negative gradient." For other losses (e.g., log-loss for classification), the gradient differs from a simple residual, but the idea is the same: gradient descent in function space.
+
+---
+count: false
+
+# Boosting: Step-by-Step Example
+
+`\(h_m\)` is a tree — it takes features in, outputs a number (the leaf mean). `\(\eta \cdot h_m\)` just scales that number down.
+
+.small[
+Tracking **one ride** (Southside, rush hour, actual = **1.80**). `\(\bar{y} = 1.35\)`, `\(\eta = 0.3\)`.
+
+| Step | Residual | Leaf this ride falls into | `\(h_m\)` (leaf mean) | Update |
+|---|---|---|---|---|
+| Start | 0.45 | | | `\(\hat{f}_0 = 1.35\)` |
+| Tree 1 | 0.45 | 3 rush rides: residuals 0.45, 0.56, 0.37 | 0.46 | `\(1.35 + 0.3 \times 0.46 = \textbf{1.49}\)` |
+| Tree 2 | 0.31 | 4 Southside rides: residuals 0.31, 0.28, 0.40, 0.37 | 0.34 | `\(1.49 + 0.3 \times 0.34 = \textbf{1.59}\)` |
+| Tree 3 | 0.21 | 3 high-demand rides: residuals 0.21, 0.15, 0.27 | 0.21 | `\(1.59 + 0.3 \times 0.21 = \textbf{1.65}\)` |
+
+`\(h_m\)` is not this ride's residual — it's the **average residual in the leaf** (which contains other rides too). Only `\(\eta = 30\%\)` of each correction is applied. The ensemble slowly converges: 1.35 → 1.49 → 1.59 → 1.65 → ... → 1.80.
+]
+
+---
+
+# Boosting Toy Example (Visual)
+
+&lt;img src="slides_files/figure-html/boost-toy-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# GBM Hyperparameters
+
+| Parameter | What it controls | Typical range | Interaction |
+|-----------|-----------------|--------------|------------|
+| `trees` (M) | Boosting rounds | 100–1000 | More trees + low `\(\eta\)` = better but slower |
+| `tree_depth` | Complexity per tree | 1–6 | Depth 1 = main effects only; 6 = complex interactions |
+| `learn_rate` ( `\(\eta\)` ) | Shrinkage | 0.01–0.3 | Lower = needs more trees but generalizes better |
+
+--
+
+.highlight-box[
+**Unlike RF, boosting CAN overfit** with too many trees. That's why we tune `trees` via cross-validation — the optimal number depends on `tree_depth` and `learn_rate`.
+]
+
+---
+
+# XGBoost in R
+
+.pull-left[
+.small[
+
+```r
+gbm_spec &lt;- boost_tree(
+  trees      = 200,
+  tree_depth = 3,
+  learn_rate = 0.1) |&gt;
+  set_engine("xgboost",
+    verbosity = 0) |&gt;
+  set_mode("regression")
+
+gbm_wf &lt;- workflow() |&gt;
+  add_recipe(recipe(
+    surge_mult ~ hour + demand_ratio +
+      drivers_nearby + neighborhood +
+      is_weekend + is_rush,
+    data = surge) |&gt;
+    step_mutate(across(where(is.logical), as.numeric)) |&gt;
+    step_dummy(all_nominal_predictors())) |&gt;
+  add_model(gbm_spec)
+
+gbm_fit &lt;- fit(gbm_wf, data = surge)
+```
+]
+]
+
+.pull-right[
+.small[
+- `step_dummy` converts `neighborhood` to 0/1 columns (XGBoost needs numeric input)
+- Same `workflow()` pattern as RF — recipe handles preprocessing
+- In practice, replace fixed values with `tune()` and use `tune_grid()` to find the best combination via CV
+]
+]
+
+---
+
+# XGBoost Variable Importance
+
+&lt;img src="slides_files/figure-html/xgb-importance-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Part 4: Comparing the Three
+
+---
+
+# Predictions Across Neighborhoods
+
+*Points on the dashed line = perfect prediction. Tighter cloud = better model. Color spread = neighborhood matters.*
+
+&lt;img src="slides_files/figure-html/compare-preds-1.png" style="display: block; margin: auto;" /&gt;
+
+Single tree: blocky predictions (few distinct values). RF and XGBoost: smoother, tighter around the diagonal. But all three show **neighborhood-colored clusters** — the model treats neighborhoods differently.
+
+---
+
+# The Fairness Lens
+
+&lt;img src="slides_files/figure-html/fairness-lens-1.png" style="display: block; margin: auto;" /&gt;
+
+--
+
+The model learned that **Southside** has high demand and few drivers `\(\to\)` high surge. Is this efficient pricing or algorithmic redlining? That depends on *why* there are few drivers — which is Module 7's question.
+
+---
+
+# Part 5: SHAP Values
+
+---
+
+# Beyond Importance: Why Did *This* Ride Get a High Price?
+
+Variable importance tells you which features matter **globally**. SHAP values tell you why the model made **this specific prediction**.
+
+--
+
+For each prediction:
+
+`$$\hat{f}(x_i) = \phi_0 + \phi_{\text{demand}}(x_i) + \phi_{\text{drivers}}(x_i) + \phi_{\text{neighborhood}}(x_i) + \ldots$$`
+
+--
+
+- `\(\phi_0\)` = average prediction across all rides
+- `\(\phi_j(x_i)\)` = how much feature `\(j\)` pushed *this* ride's prediction above or below average
+- All SHAP values sum exactly to the prediction (the **efficiency** property)
+
+---
+
+# SHAP for Our Surge Model
+
+
+```r
+# Extract raw xgboost object and prepare data matrix
+xgb_raw &lt;- extract_fit_parsnip(gbm_fit)$fit
+surge_baked &lt;- bake(extract_recipe(gbm_fit, estimated = TRUE),
+                     new_data = surge) |&gt;
+  select(-surge_mult) |&gt;
+  mutate(across(where(is.logical), as.numeric)) |&gt;
+  as.matrix()
+dtrain_shap &lt;- xgb.DMatrix(surge_baked)
+
+shap_contrib &lt;- predict(xgb_raw, newdata = dtrain_shap, predcontrib = TRUE)
+# Last column is BIAS (intercept) — drop it to keep only feature contributions
+shap_mat &lt;- shap_contrib[, -ncol(shap_contrib), drop = FALSE]
+shap_df &lt;- as_tibble(shap_mat) |&gt;
+  set_names(colnames(surge_baked))
+
+# Mean absolute SHAP per feature
+shap_importance &lt;- shap_df |&gt;
+  summarise(across(everything(), ~ mean(abs(.)))) |&gt;
+  pivot_longer(everything(), names_to = "feature", values_to = "mean_abs_shap") |&gt;
+  mutate(feature = fct_reorder(feature, mean_abs_shap))
+
+shap_importance |&gt;
+  slice_max(mean_abs_shap, n = 10) |&gt;
+  ggplot(aes(mean_abs_shap, feature)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Mean |SHAP| — Which Features Drive Predictions Most?",
+       x = "Mean |SHAP value|", y = NULL)
+```
+
+&lt;img src="slides_files/figure-html/shap-compute-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# SHAP for Individual Rides
+
+.small[
+
+```r
+# Pick a high-surge ride and a low-surge ride
+high_idx &lt;- which.max(surge$surge_mult)
+low_idx  &lt;- which.min(surge$surge_mult)
+
+bind_rows(
+  tibble(feature = colnames(surge_baked),
+         shap = as.numeric(shap_mat[high_idx, ]),
+         ride = paste("High surge:", round(surge$surge_mult[high_idx], 2))),
+  tibble(feature = colnames(surge_baked),
+         shap = as.numeric(shap_mat[low_idx, ]),
+         ride = paste("Low surge:", round(surge$surge_mult[low_idx], 2)))
+) |&gt;
+  group_by(ride) |&gt;
+  slice_max(abs(shap), n = 6) |&gt;
+  mutate(feature = fct_reorder(feature, abs(shap))) |&gt;
+  ggplot(aes(shap, feature, fill = shap &gt; 0)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ride, scales = "free_y") +
+  scale_fill_manual(values = c("TRUE" = "firebrick", "FALSE" = "steelblue")) +
+  labs(title = "SHAP Decomposition: Why Did This Ride Get This Price?",
+       x = "SHAP value (contribution to prediction)", y = NULL)
+```
+
+&lt;img src="slides_files/figure-html/shap-individual-1.png" style="display: block; margin: auto;" /&gt;
+]
+
+---
+
+# The Audit Question
+
+SHAP lets you answer: **"Is neighborhood driving the prediction, after controlling for demand and supply?"**
+
+--
+
+If `neighborhoodSouthside` has a large positive SHAP value even for rides where `demand_ratio` and `drivers_nearby` are average, that's evidence the model is using neighborhood as more than a proxy for supply/demand.
+
+--
+
+.highlight-box[
+This is the bridge to Module 7 (fairness) and Module 8 (auditing): tree-based models are powerful predictors but can encode geographic discrimination. SHAP is how you detect it.
+]
+
+---
+
+# Key Takeaways
+
+1. **Decision trees** are interpretable but overfit. Control with depth and pruning.
+
+2. **Random forests** average many decorrelated trees `\(\to\)` low variance without much bias increase. Main hyperparameter: `mtry`.
+
+3. **Gradient boosting** (XGBoost) builds trees sequentially, correcting errors. Strongest off-the-shelf classifier, but **can overfit** — tune `trees`, `tree_depth`, `learn_rate` via CV.
+
+4. **Variable importance** tells you what matters globally. **SHAP** tells you why each individual prediction was made.
+
+5. All tree-based methods naturally handle **interactions** and **non-linearities** — no feature engineering needed.
+
+---
+
+# Exercise Preview
+
+In the exercise you will:
+
+1. Simulate a richer surge pricing dataset with explicit demographic correlations
+2. Fit decision tree, random forest, and XGBoost models
+3. Tune RF and XGBoost hyperparameters with cross-validation using `tidymodels`
+4. Compare performance (RMSE, MAE) across models and neighborhoods
+5. Compute SHAP values and check whether neighborhood effects persist after controlling for supply/demand
+6. Write a 3-sentence "audit summary" of whether the model is redlining
+
+See `exercise.R` for the starter code.
+
+---
+class: center, middle, inverse
+
+# Backup Slides
+
+---
+name: variance-proof
+
+# Backup: Variance of Averaged Correlated Predictions
+
+&lt;a href="#decorrelation" style="position:absolute; bottom:12px; left:40px; font-size:11px; background:#e8eaf6; padding:2px 8px; border-radius:3px; z-index:100;"&gt;Back&lt;/a&gt;
+
+We have `\(B\)` trees, each producing prediction `\(X_i\)` with `\(\text{Var}(X_i) = \sigma^2\)` and pairwise correlation `\(\text{Cor}(X_i, X_j) = \rho\)` for all `\(i \neq j\)`.
+
+The ensemble prediction is `\(\bar{X} = \frac{1}{B}\sum_{i=1}^B X_i\)`. Its variance:
+
+`$$\text{Var}(\bar{X}) = \text{Var}\!\left(\frac{1}{B}\sum_i X_i\right) = \frac{1}{B^2} \sum_i \sum_j \text{Cov}(X_i, X_j)$$`
+
+--
+
+Split the double sum into diagonal ( `\(i = j\)` ) and off-diagonal ( `\(i \neq j\)` ) terms:
+
+`$$= \frac{1}{B^2}\left[\sum_i \sigma^2 + \sum_{i \neq j} \rho\sigma^2\right] = \frac{1}{B^2}\left[B\sigma^2 + B(B-1)\rho\sigma^2\right]$$`
+
+--
+
+`$$= \frac{\sigma^2}{B} + \frac{B-1}{B}\rho\sigma^2 = \underbrace{\rho\sigma^2}\_{\text{can't reduce}} + \underbrace{\frac{(1-\rho)}{B}\sigma^2}\_{\to 0 \text{ as } B \to \infty}$$`
+
+As `\(B \to \infty\)`, only `\(\rho\sigma^2\)` remains. **Lower `\(\rho\)` (more decorrelated trees) = lower irreducible variance.**
+
+---
+name: gradient-proof
+
+# Backup: Why "Gradient" Boosting?
+
+&lt;a href="#boosting" style="position:absolute; bottom:12px; left:40px; font-size:11px; background:#e8eaf6; padding:2px 8px; border-radius:3px; z-index:100;"&gt;Back&lt;/a&gt;
+
+.pull-left[
+**Proof:** for squared-error loss `\(L = \frac{1}{2}(y_i - \hat{f}(x_i))^2\)`:
+
+`$$\frac{\partial L}{\partial \hat{f}(x_i)} = -(y_i - \hat{f}(x_i)) = -r_i$$`
+
+The **negative gradient** = the residual. So "fit a tree to the residuals" is gradient descent in function space: each tree steps in the direction that most reduces the loss.
+
+For **log-loss** (classification): the gradient is `\(p_i - y_i\)` (predicted prob minus label), which is *not* a simple residual — but the algorithm is the same: compute gradient → fit tree → step.
+]
+
+.pull-right[
+&lt;img src="slides_files/figure-html/gradient-viz-1.png" style="display: block; margin: auto;" /&gt;
+]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
