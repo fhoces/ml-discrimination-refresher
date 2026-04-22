@@ -89,7 +89,15 @@ We saw this hint in Module 2: every model had ~75% accuracy yet predicted very d
 
 --
 
-For classification, look at the **confusion matrix**:
+For classification, look at the **confusion matrix**...
+
+---
+background-image: url(figs/confusion_matrix.png)
+background-size: contain
+
+---
+
+# The Confusion Matrix
 
 .big-table[
 |              | Predicted = 1 | Predicted = 0 |
