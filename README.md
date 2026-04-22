@@ -46,7 +46,7 @@ and `ggrepel`. Install with `install.packages(...)` as needed.
 | **1** | [The Learning Problem](module-01/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-01/slides.html)) | Bias-variance, train/val/test, loss functions | Disparate wait times — statistical bias vs social bias |
 | **2** | [Linear Models](module-02/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-02/slides.html)) | Linear & logistic regression, Ridge / Lasso / Elastic Net | Driver acceptance & proxy discrimination |
 | **3** | [Model Evaluation & Selection](module-03/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-03/slides.html)) | Confusion matrix, precision / recall / FPR, ROC-AUC, calibration, k-fold CV | Auditing the acceptance model — equal AUC ≠ equal treatment |
-| 4 | Tree-Based Methods | Decision trees, Random Forest, XGBoost, SHAP | Surge pricing & geographic redlining |
+| **4** | [Tree-Based Methods](module-04/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-04/slides.html)) | Decision trees, Random Forest, XGBoost, SHAP | Surge pricing & geographic redlining |
 | 5 | Unsupervised Learning | PCA, K-means, hierarchical clustering, UMAP | Rider segmentation that mirrors demographics |
 | 6 | Neural Networks | Perceptrons, backprop, SGD/Adam | Deep pricing models — auditing the un-interpretable |
 | **7** | [Fairness Frameworks & Metrics](module-07/) ([slides](https://fhoces.github.io/ml-discrimination-refresher/module-07/slides.html)) | Demographic parity, equalized odds, predictive parity, impossibility theorem | Fair dispatch under accuracy/fairness tradeoff |
